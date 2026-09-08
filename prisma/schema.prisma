@@ -1,0 +1,151 @@
+// Mess Calculator — data model.
+//
+// Ported from the Django version's models. The invariants that used to live
+// in Django (`unique_together`, the append-only ActivityLog, the cached
+// MonthCycle totals kept in sync by signals) are preserved here: the unique
+// constraints are enforced by the database, and the append-only / recalculate
+// behaviour lives in src/lib/mess-service.ts, which is the only module allowed
+// to write DailyEntry rows.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+// Prisma 7 takes the connection URL from prisma.config.ts, and the app
+// connects through the pg driver adapter in src/lib/prisma.ts.
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique
+  email        String   @unique
+  firstName    String   @default("")
+  lastName     String   @default("")
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  memberships   GroupMembership[]
+  groupsCreated Group[]             @relation("GroupCreatedBy")
+  entries       DailyEntry[]
+  enrollments   MonthlyEnrollment[]
+  actorLogs     ActivityLog[]       @relation("LogActor")
+  targetLogs    ActivityLog[]       @relation("LogTarget")
+}
+
+model Group {
+  id          Int      @id @default(autoincrement())
+  name        String
+  inviteCode  String   @unique
+  createdById Int
+  createdAt   DateTime @default(now())
+
+  // Restrict, like Django's on_delete=PROTECT: a user who created a group
+  // can't be deleted out from under it.
+  createdBy   User              @relation("GroupCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  memberships GroupMembership[]
+  months      MonthCycle[]
+  logs        ActivityLog[]
+}
+
+enum Role {
+  LEADER
+  MEMBER
+}
+
+model GroupMembership {
+  id       Int       @id @default(autoincrement())
+  groupId  Int
+  userId   Int
+  role     Role      @default(MEMBER)
+  isActive Boolean   @default(true)
+  joinedAt DateTime  @default(now())
+  leftAt   DateTime?
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@index([userId, isActive])
+}
+
+model MonthCycle {
+  id       Int       @id @default(autoincrement())
+  groupId  Int
+  year     Int
+  month    Int
+  isClosed Boolean   @default(false)
+  closedAt DateTime?
+
+  // Cached so the dashboard doesn't re-aggregate every entry on every page
+  // load. Kept in sync by recalculateMonthCycle() in src/lib/mess-service.ts,
+  // which every DailyEntry write goes through.
+  cachedTotalCost  Decimal @default(0) @db.Decimal(10, 2)
+  cachedTotalMeals Decimal @default(0) @db.Decimal(8, 2)
+  cachedMealRate   Decimal @default(0) @db.Decimal(8, 4)
+
+  group       Group               @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  entries     DailyEntry[]
+  enrollments MonthlyEnrollment[]
+
+  @@unique([groupId, year, month])
+}
+
+/// A member opting into a given month's cycle.
+model MonthlyEnrollment {
+  id           Int      @id @default(autoincrement())
+  monthCycleId Int
+  userId       Int
+  enrolledAt   DateTime @default(now())
+
+  monthCycle MonthCycle @relation(fields: [monthCycleId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([monthCycleId, userId])
+}
+
+model DailyEntry {
+  id           Int      @id @default(autoincrement())
+  monthCycleId Int
+  userId       Int
+  date         DateTime @db.Date
+  // Decimal, not integer — supports half-meals and guest meals, so a single
+  // day can legitimately hold values greater than 1.
+  lunch        Decimal  @default(0) @db.Decimal(3, 1)
+  dinner       Decimal  @default(0) @db.Decimal(3, 1)
+  cost         Decimal  @default(0) @db.Decimal(8, 2)
+  updatedAt    DateTime @updatedAt
+
+  monthCycle MonthCycle @relation(fields: [monthCycleId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([monthCycleId, userId, date])
+  @@index([monthCycleId, date])
+}
+
+enum LogAction {
+  CREATE
+  UPDATE
+}
+
+/// Append-only audit trail. Nothing in the app updates or deletes these rows.
+model ActivityLog {
+  id           Int       @id @default(autoincrement())
+  groupId      Int
+  actorId      Int
+  targetUserId Int
+  entryDate    DateTime  @db.Date
+  action       LogAction
+  fieldName    String // "lunch" / "dinner" / "cost"
+  oldValue     String?
+  newValue     String
+  timestamp    DateTime  @default(now())
+
+  group      Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  actor      User  @relation("LogActor", fields: [actorId], references: [id], onDelete: Restrict)
+  targetUser User  @relation("LogTarget", fields: [targetUserId], references: [id], onDelete: Restrict)
+
+  @@index([groupId, timestamp])
+}

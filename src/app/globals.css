@@ -1,26 +1,104 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+ * The palette from the Django templates, lifted into Tailwind theme tokens so
+ * the utility classes across the app stay in the same colour language:
+ * deep teal brand, flame orange accents, gold highlights, sea green for
+ * "good" money and rust for "owes".
+ */
+@theme {
+  --color-canvas: #fafaf8;
+  --color-ink: #1f2328;
+  --color-muted: #5b6470;
+  --color-line: #d8dce1;
+  --color-navy: #172b3a;
+  --color-slate-blue: #537078;
+
+  --color-brand: #0f4c5c;
+  --color-brand-dark: #0a3b48;
+  --color-brand-tint: #effbfc;
+  --color-brand-mist: #d7edf0;
+  --color-brand-edge: #a7d8dc;
+  --color-brand-wash: #eaf5f4;
+  --color-brand-panel: #f8fcfc;
+
+  --color-flame: #e76f51;
+  --color-flame-dark: #d45c40;
+  --color-rust: #d2693d;
+  --color-rust-dark: #b95732;
+
+  --color-gold: #f2c14e;
+  --color-gold-dark: #d9aa2f;
+  --color-gold-ink: #8a6805;
+  --color-gold-deep: #a67708;
+  --color-sand: #e5d6a8;
+  --color-parchment: #fffdf4;
+  --color-cream: #fffdf7;
+
+  --color-sea: #2a9d8f;
+  --color-sea-dark: #207d72;
+  --color-sea-wash: #e8f5f3;
+
+  --color-good: #2f6f4f;
+  --color-good-deep: #24563e;
+  --color-good-wash: #f2f7e8;
+  --color-good-ink: #315b43;
+  --color-check: #23845d;
+
+  --color-bad: #b3432b;
+  --color-bad-dark: #8f3423;
+  --color-bad-wash: #fce9e3;
+  --color-bad-ink: #a7432d;
+  --color-bad-edge: #f0c3b6;
+
+  --font-serif: Georgia, "Times New Roman", serif;
+  --font-sans: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  body {
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    line-height: 1.5;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  /* The primitives the Django base.html stylesheet provided to every page. */
+
+  .btn {
+    @apply inline-block cursor-pointer rounded border-0 bg-ink px-4 py-2 text-[0.95rem] text-white no-underline;
+  }
+
+  .field-label {
+    @apply mb-1.5 block text-sm font-semibold text-ink;
+  }
+
+  .field-input {
+    @apply w-full rounded-md border border-[#c6ccd1] bg-[#fcfcfa] px-3 py-2.5 transition-[border-color,box-shadow] duration-150;
+  }
+
+  .field-input:focus {
+    @apply border-good outline-none;
+    box-shadow: 0 0 0 3px rgba(47, 111, 79, 0.14);
+  }
+
+  .errorlist {
+    @apply mt-1.5 list-disc pl-4 text-[0.85rem] text-bad;
+  }
+
+  .muted {
+    @apply text-[0.9rem] text-muted;
+  }
+
+  /* Panel shell shared by the dashboard, logs, and details tables. */
+  .panel {
+    @apply overflow-hidden rounded-[10px] border border-line bg-white;
+    box-shadow: 0 12px 28px rgba(23, 43, 58, 0.06);
+  }
+
+  .back-link {
+    @apply mt-5 inline-block font-bold text-good no-underline hover:underline;
+  }
 }
