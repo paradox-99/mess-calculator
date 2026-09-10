@@ -68,6 +68,41 @@ export async function recalculateMonthCycle(
   });
 }
 
+export type DailyEntryValues = { lunch: boolean; dinner: boolean; cost: string };
+
+/**
+ * A member's existing DailyEntry for one date, formatted for form prefill.
+ * Read-only: unlike getOrCreateMonthCycle, it never creates a MonthCycle, so
+ * looking up a date with no entries yet just reports the empty state.
+ */
+export async function entryForDate(
+  groupId: number,
+  userId: number,
+  date: Date,
+): Promise<DailyEntryValues> {
+  const monthCycle = await prisma.monthCycle.findUnique({
+    where: {
+      groupId_year_month: {
+        groupId,
+        year: date.getUTCFullYear(),
+        month: date.getUTCMonth() + 1,
+      },
+    },
+  });
+  if (!monthCycle) return { lunch: false, dinner: false, cost: "" };
+
+  const entry = await prisma.dailyEntry.findUnique({
+    where: { monthCycleId_userId_date: { monthCycleId: monthCycle.id, userId, date } },
+  });
+  if (!entry) return { lunch: false, dinner: false, cost: "" };
+
+  return {
+    lunch: !entry.lunch.isZero(),
+    dinner: !entry.dinner.isZero(),
+    cost: entry.cost.isZero() ? "" : entry.cost.toString(),
+  };
+}
+
 /** (cost, meals, due, balance) for one member in this cycle. */
 export async function balanceFor(
   monthCycle: MonthCycle,

@@ -30,7 +30,7 @@ export default async function TransferLeadershipPage({ params }: PageProps) {
 
   return (
     <section className="mx-auto my-11 max-w-[560px] max-[680px]:my-6">
-      <div className="rounded-xl border border-sand bg-parchment px-[clamp(1.5rem,5vw,3rem)] py-9 shadow-[0_18px_45px_rgba(31,35,40,0.08)] max-[680px]:p-6">
+      <div className="card border border-sand bg-parchment px-[clamp(1.5rem,5vw,3rem)] py-9 shadow-[0_18px_45px_rgba(31,35,40,0.08)] max-[680px]:p-6">
         <h1 className="mb-2 text-[clamp(1.8rem,5vw,2.35rem)] text-navy">Transfer leadership</h1>
         <p className="text-muted">
           Choose a member to become the new leader. You will become a normal member immediately.

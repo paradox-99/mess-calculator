@@ -7,8 +7,7 @@ import { NonFieldErrors, TextField } from "@/components/form-fields";
 import { SubmitButton } from "@/components/submit-button";
 import { emptyFormState } from "@/lib/form";
 
-const cardButton =
-  "btn mt-1 w-full rounded-md bg-brand py-2.5 font-bold hover:bg-brand-dark";
+const cardButton = "btn btn-primary btn-block mt-1";
 
 export function ProfileDetailsForm({
   defaults,

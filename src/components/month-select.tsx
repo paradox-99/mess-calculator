@@ -35,7 +35,7 @@ export function MonthSelect({
         name="month_choice"
         defaultValue={selected}
         onChange={(event) => router.push(`${pathname}?month_choice=${event.target.value}`)}
-        className={`min-w-[170px] rounded-md border border-[#b8d5d2] bg-white px-3 py-2 font-bold text-brand ${className}`}
+        className={`select select-sm min-w-[170px] border-[#b8d5d2] bg-white font-bold text-brand ${className}`}
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>

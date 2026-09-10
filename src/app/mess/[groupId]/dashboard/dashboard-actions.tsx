@@ -27,7 +27,7 @@ export function RemoveMemberButton({
     >
       <button
         type="submit"
-        className="cursor-pointer border-0 bg-transparent p-0 text-[0.82rem] font-semibold text-bad hover:text-bad-dark hover:underline max-[680px]:text-[0.78rem]"
+        className="btn btn-ghost btn-xs text-[0.82rem] font-semibold text-bad hover:text-bad-dark max-[680px]:text-[0.78rem]"
       >
         Remove
       </button>
@@ -59,7 +59,7 @@ export function CloseMonthButton({
     >
       <input type="hidden" name="year" value={year} />
       <input type="hidden" name="month" value={month} />
-      <button type="submit" className="btn bg-sea hover:bg-sea-dark">
+      <button type="submit" className="btn btn-secondary">
         Close month
       </button>
     </ConfirmForm>

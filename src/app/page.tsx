@@ -58,7 +58,7 @@ export default async function HomePage() {
             {user ? (
               <Link
                 href="/groups"
-                className="inline-block rounded-md bg-flame px-[1.15rem] py-3 font-extrabold text-white no-underline hover:bg-flame-dark"
+                className="btn btn-lg border-0 bg-flame font-extrabold text-white hover:bg-flame-dark"
               >
                 Open your mess
               </Link>
@@ -66,13 +66,13 @@ export default async function HomePage() {
               <>
                 <Link
                   href="/signup"
-                  className="inline-block rounded-md bg-flame px-[1.15rem] py-3 font-extrabold text-white no-underline hover:bg-flame-dark"
+                  className="btn btn-lg border-0 bg-flame font-extrabold text-white hover:bg-flame-dark"
                 >
                   Start a mess
                 </Link>
                 <Link
                   href="/login"
-                  className="inline-block rounded-md border border-brand-edge px-[1.15rem] py-3 font-extrabold text-brand-tint no-underline hover:bg-white/10"
+                  className="btn btn-lg btn-outline border-brand-edge font-extrabold text-brand-tint hover:border-white hover:bg-white/10 hover:text-white"
                 >
                   Log in
                 </Link>
@@ -83,7 +83,7 @@ export default async function HomePage() {
 
         <div
           aria-label="Example monthly meal summary"
-          className="relative z-[1] rounded-xl border border-white/45 bg-[rgba(255,253,247,0.94)] p-5 shadow-[0_22px_40px_rgba(9,42,52,0.24)] [transform:rotate(2deg)] max-[760px]:[transform:none]"
+          className="card relative z-[1] border border-white/45 bg-[rgba(255,253,247,0.94)] p-5 shadow-[0_22px_40px_rgba(9,42,52,0.24)] [transform:rotate(2deg)] max-[760px]:[transform:none]"
         >
           <div className="flex items-center justify-between gap-3 border-b border-[#d8e2df] pb-3.5 max-[760px]:flex-col max-[760px]:items-start">
             <strong className="text-navy">Flat 6B</strong>
@@ -119,7 +119,7 @@ export default async function HomePage() {
           {FEATURES.map((feature) => (
             <article
               key={feature.title}
-              className={`min-h-[180px] rounded-lg border-t-[5px] ${feature.accent} bg-white p-6 shadow-[0_8px_24px_rgba(23,43,58,0.07)]`}
+              className={`card min-h-[180px] border-t-[5px] ${feature.accent} bg-base-100 p-6 shadow-[0_8px_24px_rgba(23,43,58,0.07)]`}
             >
               <span className={`text-[0.8rem] font-extrabold tracking-[0.1em] ${feature.numberColor}`}>
                 {feature.number}
@@ -133,7 +133,7 @@ export default async function HomePage() {
 
       <div className="mt-16 flex items-center justify-between gap-4 rounded-lg bg-navy px-6 py-5 text-brand-mist max-[760px]:flex-col max-[760px]:items-start">
         <p className="m-0">Ready to make your next month easier?</p>
-        <Link href={user ? "/groups" : "/signup"} className="font-extrabold text-gold">
+        <Link href={user ? "/groups" : "/signup"} className="link link-hover font-extrabold text-gold">
           {user ? "Go to your groups →" : "Create your account →"}
         </Link>
       </div>

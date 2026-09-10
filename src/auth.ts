@@ -1,4 +1,4 @@
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 
@@ -7,6 +7,14 @@ import { prisma } from "@/lib/prisma";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
+  logger: {
+    // A wrong username/password is a normal outcome that the login action
+    // already reports to the user; don't dump a stack trace for each one.
+    error(error) {
+      if (error instanceof CredentialsSignin) return;
+      console.error(`[auth][error] ${error.name}: ${error.message}`, error);
+    },
+  },
   providers: [
     Credentials({
       credentials: {

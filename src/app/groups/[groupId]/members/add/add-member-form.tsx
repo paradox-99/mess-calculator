@@ -15,7 +15,7 @@ export function AddMemberForm({ groupId }: { groupId: number }) {
       <NonFieldErrors state={state} />
       <TextField name="username" label="Username" state={state} maxLength={150} required />
       <SubmitButton
-        className="btn mt-2 w-full rounded-md bg-brand py-3 font-bold hover:bg-brand-dark"
+        className="btn btn-primary btn-lg btn-block mt-2"
         pendingLabel="Adding…"
       >
         Add member

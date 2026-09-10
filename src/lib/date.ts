@@ -52,6 +52,25 @@ export function parseISODate(value: string | null | undefined): Date | null {
   return date;
 }
 
+const WEEKDAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS_SHORT = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+/**
+ * "Tue, Sep 8, 2026" from a `YYYY-MM-DD` string, built from the UTC parts by
+ * hand rather than with Intl, so a server-rendered label and the browser
+ * cannot disagree about locale and cause a hydration mismatch.
+ */
+export function formatISODateLabel(iso: string): string {
+  const date = parseISODate(iso);
+  if (!date) return "Pick a date";
+  const weekday = WEEKDAYS_SHORT[date.getUTCDay()];
+  const month = MONTHS_SHORT[date.getUTCMonth()];
+  return `${weekday}, ${month} ${date.getUTCDate()}, ${date.getUTCFullYear()}`;
+}
+
 export function daysInMonth(year: number, month: number): number {
   return new Date(Date.UTC(year, month, 0)).getUTCDate();
 }

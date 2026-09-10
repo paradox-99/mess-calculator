@@ -119,7 +119,7 @@ export default async function DashboardPage({ params, searchParams }: PageProps)
           )}
         </nav>
 
-        <div className="mb-6 grid grid-cols-3 gap-4 max-[680px]:grid-cols-1 max-[680px]:gap-3">
+        <div className="stats mb-6 w-full border border-line bg-base-100 shadow-[0_8px_20px_rgba(23,43,58,0.05)] max-[680px]:stats-vertical">
           <SummaryCard
             accent="border-t-flame"
             valueClass="text-[#c65338]"
@@ -141,32 +141,34 @@ export default async function DashboardPage({ params, searchParams }: PageProps)
         </div>
 
         {closeStatus === "closed" ? (
-          <p className="mb-4 rounded-[7px] bg-sea-wash px-4 py-3 font-semibold text-sea-dark">
-            {label} has been closed. Entries can no longer be changed.
-          </p>
+          <div role="status" className="alert alert-success alert-soft mb-4">
+            <span>{label} has been closed. Entries can no longer be changed.</span>
+          </div>
         ) : null}
         {closeStatus === "not-ready" ? (
-          <p className="mb-4 rounded-[7px] bg-[#fff6dc] px-4 py-3 font-semibold text-gold-ink">
-            The current month cannot be closed until it has ended.
-          </p>
+          <div role="status" className="alert alert-warning alert-soft mb-4">
+            <span>The current month cannot be closed until it has ended.</span>
+          </div>
         ) : null}
         {monthCycle.isClosed ? (
-          <p className="mb-4 rounded-[7px] bg-sea-wash px-4 py-3 font-semibold text-sea-dark">
-            This month is closed
-            {monthCycle.closedAt ? ` on ${formatShortDate(monthCycle.closedAt)}` : ""}.
-          </p>
+          <div role="status" className="alert alert-info alert-soft mb-4">
+            <span>
+              This month is closed
+              {monthCycle.closedAt ? ` on ${formatShortDate(monthCycle.closedAt)}` : ""}.
+            </span>
+          </div>
         ) : null}
 
         <section className="panel shadow-[0_10px_24px_rgba(23,43,58,0.05)]">
           <div className="flex items-center justify-between border-b border-line px-5 py-[1.1rem] max-[680px]:p-4">
             <h2 className="m-0 text-[1.1rem] text-brand">Member balances</h2>
-            <span className="muted">
+            <span className="badge badge-ghost badge-sm">
               {rows.length} member{pluralize(rows.length)}
             </span>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="m-0 w-full min-w-[680px] border-collapse text-left max-[680px]:block max-[680px]:min-w-0 max-[680px]:text-[0.88rem]">
+            <table className="table m-0 w-full min-w-[680px] border-collapse text-left max-[680px]:block max-[680px]:min-w-0 max-[680px]:text-[0.88rem]">
               <thead className="max-[680px]:hidden">
                 <tr>
                   {["Member", "Cost paid", "Meals", "Due", "Balance", ""].map((heading, index) => (
@@ -199,12 +201,20 @@ export default async function DashboardPage({ params, searchParams }: PageProps)
                     </Cell>
                     <td className="min-w-[210px] border-b border-line px-5 py-3.5 max-[680px]:block max-[680px]:min-w-0 max-[680px]:border-b-0 max-[680px]:px-0 max-[680px]:pb-0 max-[680px]:pt-2 max-[680px]:text-left">
                       {viewerIsLeader || row.user.id === user.id ? (
-                        <Link
-                          href={`/mess/${group.id}/entry/${row.user.id}`}
-                          className="font-bold text-good no-underline hover:underline max-[680px]:text-[0.78rem]"
-                        >
-                          Add Meal
-                        </Link>
+                        <>
+                          <Link
+                            href={`/mess/${group.id}/entry/${row.user.id}`}
+                            className="font-bold text-good no-underline hover:underline max-[680px]:text-[0.78rem]"
+                          >
+                            Add Meal
+                          </Link>
+                          <Link
+                            href={`/mess/${group.id}/entry/bulk/${row.user.id}`}
+                            className="ml-2.5 text-[0.82rem] font-bold text-sea-dark no-underline hover:underline max-[680px]:text-[0.78rem]"
+                          >
+                            Multiple days
+                          </Link>
+                        </>
                       ) : null}
                       {viewerIsLeader ? (
                         <Link
@@ -229,21 +239,20 @@ export default async function DashboardPage({ params, searchParams }: PageProps)
           </div>
         </section>
 
-        <p className="mt-3 text-[0.85rem] text-muted">
-          Positive balance means money is owed back. Negative balance means the member owes the
-          group.
+        <p lang="bn" className="mt-3 text-[0.85rem] text-muted">
+          (+) ব্যালেন্স মানে সদস্য টাকা ফেরত পাবে। (-) ব্যালেন্স মানে সদস্য গ্রুপকে টাকা দেবে।
         </p>
 
         <div className="mt-6 flex flex-wrap gap-3">
           <Link
             href={`/mess/${group.id}/entry?date=${toISODate(today())}`}
-            className="btn bg-rust hover:bg-rust-dark"
+            className="btn btn-accent"
           >
             Add today&apos;s meal status
           </Link>
           <Link
             href={`/mess/${group.id}/details?year=${monthCycle.year}&month=${monthCycle.month}`}
-            className="btn bg-gold text-white hover:bg-gold-dark"
+            className="btn btn-warning"
           >
             Daily meal details
           </Link>
@@ -251,11 +260,11 @@ export default async function DashboardPage({ params, searchParams }: PageProps)
             <>
               <Link
                 href={`/groups/${group.id}/members/add`}
-                className="btn bg-sea hover:bg-sea-dark"
+                className="btn btn-secondary"
               >
                 Add member
               </Link>
-              <Link href={`/mess/${group.id}/logs`} className="btn bg-brand hover:bg-brand-dark">
+              <Link href={`/mess/${group.id}/logs`} className="btn btn-primary">
                 View activity log
               </Link>
               {isPastMonth && !monthCycle.isClosed ? (
@@ -286,11 +295,9 @@ function SummaryCard({
   value: string;
 }) {
   return (
-    <div
-      className={`rounded-lg border border-line border-t-4 ${accent} bg-white px-5 py-[1.15rem] shadow-[0_8px_20px_rgba(23,43,58,0.05)]`}
-    >
-      <p className="mb-1 text-[0.85rem] text-muted">{label}</p>
-      <strong className={`block text-[1.45rem] font-bold ${valueClass}`}>{value}</strong>
+    <div className={`stat border-t-4 ${accent}`}>
+      <span className="stat-title text-[0.85rem] text-muted">{label}</span>
+      <span className={`stat-value text-[1.45rem] font-bold ${valueClass}`}>{value}</span>
     </div>
   );
 }

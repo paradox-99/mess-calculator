@@ -14,7 +14,7 @@ export function GroupJoinForm() {
     <form action={formAction}>
       <NonFieldErrors state={state} />
       <TextField name="inviteCode" label="Invite code" state={state} maxLength={12} required />
-      <SubmitButton className="btn" pendingLabel="Joining…">
+      <SubmitButton className="btn btn-primary btn-block" pendingLabel="Joining…">
         Join
       </SubmitButton>
     </form>

@@ -59,10 +59,12 @@ export default async function PersonalCalculationPage({ params, searchParams }: 
         {cards.map((card) => (
           <div
             key={card.label}
-            className={`rounded-[9px] border border-line border-t-4 ${card.accent} bg-white p-5 shadow-[0_8px_20px_rgba(23,43,58,0.05)]`}
+            className={`stats border border-line border-t-4 ${card.accent} bg-base-100 shadow-[0_8px_20px_rgba(23,43,58,0.05)]`}
           >
-            <span className="block text-[0.85rem] text-muted">{card.label}</span>
-            <strong className="mt-1.5 block text-2xl text-navy">{card.value}</strong>
+            <div className="stat p-5">
+              <span className="stat-title text-[0.85rem] text-muted">{card.label}</span>
+              <span className="stat-value mt-1.5 text-2xl text-navy">{card.value}</span>
+            </div>
           </div>
         ))}
       </div>

@@ -83,7 +83,7 @@ export default async function MealDetailsPage({ params, searchParams }: PageProp
             {group.name} — every member&apos;s meals for this month.
           </p>
         </div>
-        <span className="whitespace-nowrap rounded-full bg-brand-wash px-3 py-2 font-bold text-brand">
+        <span className="badge badge-primary badge-soft badge-lg whitespace-nowrap font-bold">
           {label}
         </span>
       </div>
@@ -102,7 +102,7 @@ export default async function MealDetailsPage({ params, searchParams }: PageProp
       <section className="panel">
         {members.length > 0 ? (
           <div className="overflow-x-auto">
-            <table className="m-0 w-full min-w-[620px] border-collapse">
+            <table className="table m-0 w-full min-w-[620px] border-collapse">
               <thead>
                 <tr>
                   <th className="border border-line bg-navy px-3 py-3 text-left text-[0.78rem] tracking-[0.04em] text-white">
@@ -157,13 +157,16 @@ export default async function MealDetailsPage({ params, searchParams }: PageProp
         )}
       </section>
 
-      <section aria-label="Extra meals by member" className="mt-4 rounded-[10px] border border-sand bg-parchment px-[1.15rem] py-4">
+      <section
+        aria-label="Extra meals by member"
+        className="card mt-4 border border-sand bg-parchment px-[1.15rem] py-4"
+      >
         <h2 className="mb-3 text-base text-gold-ink">Extra meals this month</h2>
         <div className="flex flex-wrap gap-2.5">
           {members.map((member) => (
             <span
               key={member.id}
-              className="rounded-full bg-gold px-3 py-2 text-[0.85rem] font-bold text-navy"
+              className="badge badge-warning badge-lg font-bold text-navy"
             >
               {member.username}: {extraMeals.get(member.id)?.toString() ?? "0"}
             </span>

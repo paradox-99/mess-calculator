@@ -23,9 +23,9 @@ export function TransferLeadershipForm({
 
   if (members.length === 0) {
     return (
-      <p className="mt-6 rounded-lg border border-sand bg-white p-4 text-muted">
-        There is no one to transfer leadership to yet — add another member first.
-      </p>
+      <div role="alert" className="alert alert-warning alert-soft mt-6">
+        <span>There is no one to transfer leadership to yet — add another member first.</span>
+      </div>
     );
   }
 
@@ -47,7 +47,7 @@ export function TransferLeadershipForm({
           );
         }}
       >
-        <p className="mb-4 mt-4">
+        <div className="mb-4 mt-4">
           <label className="field-label" htmlFor="id_memberId">
             New leader
           </label>
@@ -56,7 +56,7 @@ export function TransferLeadershipForm({
             name="memberId"
             required
             defaultValue={state.values?.memberId ?? ""}
-            className="field-input"
+            className={`select w-full ${state.errors?.memberId ? "select-error" : ""}`}
           >
             <option value="" disabled>
               ---------
@@ -68,11 +68,8 @@ export function TransferLeadershipForm({
             ))}
           </select>
           <FieldErrors messages={state.errors?.memberId} />
-        </p>
-        <button
-          type="submit"
-          className="btn mt-2 w-full rounded-md bg-bad py-3 font-bold hover:bg-bad-dark"
-        >
+        </div>
+        <button type="submit" className="btn btn-error btn-lg btn-block mt-2">
           Transfer leadership
         </button>
       </ConfirmForm>

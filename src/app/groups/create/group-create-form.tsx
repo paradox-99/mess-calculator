@@ -14,7 +14,7 @@ export function GroupCreateForm() {
     <form action={formAction}>
       <NonFieldErrors state={state} />
       <TextField name="name" label="Name" state={state} maxLength={100} required />
-      <SubmitButton className="btn" pendingLabel="Creating…">
+      <SubmitButton className="btn btn-primary btn-block" pendingLabel="Creating…">
         Create
       </SubmitButton>
     </form>

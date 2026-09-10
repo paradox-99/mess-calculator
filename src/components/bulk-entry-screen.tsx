@@ -1,26 +1,23 @@
 import Link from "next/link";
 import { forbidden, notFound } from "next/navigation";
 
-import { DailyEntryForm } from "@/app/mess/[groupId]/entry/daily-entry-form";
-import { parseISODate, toISODate, today } from "@/lib/date";
+import { BulkEntryForm } from "@/app/mess/[groupId]/entry/bulk/bulk-entry-form";
 import { requireMemberGroup } from "@/lib/guards";
-import { entryForDate } from "@/lib/mess-service";
 import { canEditEntry } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 
 /**
- * Shared by /mess/[groupId]/entry (log your own) and
- * /mess/[groupId]/entry/[userId] (a leader logging for someone else).
+ * Shared by /mess/[groupId]/entry/bulk (log your own) and
+ * /mess/[groupId]/entry/bulk/[userId] (a leader logging for someone else) —
+ * the multi-day counterpart to EntryScreen.
  */
-export async function EntryScreen({
+export async function BulkEntryScreen({
   groupId,
   targetUserId,
-  dateParam,
 }: {
   groupId: number;
   targetUserId?: number;
-  dateParam?: string;
 }) {
   const user = await requireUser();
   const group = await requireMemberGroup(user.id, groupId);
@@ -32,32 +29,19 @@ export async function EntryScreen({
   if (!targetUser) notFound();
   if (!(await canEditEntry(user.id, groupId, targetUser.id))) forbidden();
 
-  const initialDate = toISODate(parseISODate(dateParam) ?? today());
-  const initialValues = await entryForDate(group.id, targetUser.id, parseISODate(initialDate)!);
   const isSelf = targetUser.id === user.id;
 
   return (
-    <section className="mx-auto my-11 max-w-[560px] max-[520px]:my-6">
+    <section className="mx-auto my-11 max-w-[680px] max-[520px]:my-6">
       <div className="card border border-line bg-base-100 px-[clamp(1.5rem,5vw,3rem)] py-10 shadow-[0_18px_45px_rgba(31,35,40,0.08)] max-[520px]:p-7">
         <div>
           <h1 className="m-0 text-[clamp(1.8rem,5vw,2.35rem)] tracking-[-0.03em] max-[520px]:text-[1.4rem]">
-            {isSelf ? "Log your meal / cost" : `Meal entry for ${targetUser.username}`}
+            {isSelf ? "Log multiple days" : `Multiple days for ${targetUser.username}`}
           </h1>
           <p className="muted mb-8 mt-1.5">{group.name}</p>
         </div>
 
-        <DailyEntryForm
-          groupId={group.id}
-          targetUserId={targetUser.id}
-          initialDate={initialDate}
-          initialValues={initialValues}
-        />
-
-        <p className="muted mt-5 mb-0 text-sm">
-          <Link href={`/mess/${group.id}/entry/bulk${isSelf ? "" : `/${targetUser.id}`}`}>
-            Add or edit multiple days at once →
-          </Link>
-        </p>
+        <BulkEntryForm groupId={group.id} targetUserId={targetUser.id} />
 
         <Link href={`/mess/${group.id}/dashboard`} className="back-link font-semibold">
           ← Back to dashboard

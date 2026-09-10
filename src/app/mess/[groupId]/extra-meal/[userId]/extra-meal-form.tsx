@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 
 import { saveExtraMeal } from "@/app/actions/mess";
+import { DateField } from "@/components/date-field";
 import { FieldErrors, NonFieldErrors } from "@/components/form-fields";
 import { SubmitButton } from "@/components/submit-button";
 import { emptyFormState } from "@/lib/form";
@@ -25,27 +26,19 @@ export function ExtraMealForm({
     <form action={formAction}>
       <NonFieldErrors state={state} />
 
-      <p className="mb-4">
-        <label className="field-label" htmlFor="id_date">
-          Date
-        </label>
-        <input
-          className="field-input bg-white"
-          id="id_date"
-          name="date"
-          type="date"
-          required
-          defaultValue={state.values?.date ?? initialDate}
-        />
-        <FieldErrors messages={state.errors?.date} />
-      </p>
+      <DateField
+        name="date"
+        label="Date"
+        value={state.values?.date ?? initialDate}
+        errors={state.errors?.date}
+      />
 
-      <p className="mb-4">
+      <div className="mb-4">
         <label className="field-label" htmlFor="id_mealType">
           Meal type
         </label>
         <select
-          className="field-input bg-white"
+          className={`select w-full ${state.errors?.mealType ? "select-error" : ""}`}
           id="id_mealType"
           name="mealType"
           defaultValue={state.values?.mealType ?? "lunch"}
@@ -54,14 +47,14 @@ export function ExtraMealForm({
           <option value="dinner">Dinner</option>
         </select>
         <FieldErrors messages={state.errors?.mealType} />
-      </p>
+      </div>
 
-      <p className="mb-4">
+      <div className="mb-4">
         <label className="field-label" htmlFor="id_quantity">
           Extra meals
         </label>
         <input
-          className="field-input bg-white"
+          className={`input w-full ${state.errors?.quantity ? "input-error" : ""}`}
           id="id_quantity"
           name="quantity"
           type="number"
@@ -72,10 +65,10 @@ export function ExtraMealForm({
           defaultValue={state.values?.quantity ?? "1"}
         />
         <FieldErrors messages={state.errors?.quantity} />
-      </p>
+      </div>
 
       <SubmitButton
-        className="btn mt-2 w-full rounded-md bg-rust py-3 font-bold hover:bg-rust-dark"
+        className="btn btn-accent btn-lg btn-block mt-2"
         pendingLabel="Adding…"
       >
         Add extra meal

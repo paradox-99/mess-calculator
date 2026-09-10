@@ -46,6 +46,7 @@ export function ConfirmForm({
   const iconClasses =
     tone === "danger" ? "bg-bad-wash text-bad" : "bg-[#fff6dc] text-gold-deep";
   const cardBorder = tone === "danger" ? "border-bad-edge" : "border-sand";
+  const confirmClasses = tone === "danger" ? "btn btn-error" : "btn btn-warning";
 
   return (
     <>
@@ -68,13 +69,13 @@ export function ConfirmForm({
           role="dialog"
           aria-modal="true"
           aria-label={title}
-          className="fixed inset-0 z-20 grid place-items-center bg-[rgba(23,43,58,0.48)] p-4"
+          className="modal modal-open fixed inset-0 z-20 grid place-items-center bg-[rgba(23,43,58,0.48)] p-4"
           onClick={(event) => {
             if (event.target === event.currentTarget) setOpen(false);
           }}
         >
           <div
-            className={`w-[min(100%,420px)] rounded-xl border ${cardBorder} bg-white p-7 shadow-[0_24px_60px_rgba(23,43,58,0.24)]`}
+            className={`modal-box w-[min(100%,420px)] max-w-none border ${cardBorder} bg-base-100 p-7 shadow-[0_24px_60px_rgba(23,43,58,0.24)]`}
           >
             <div
               aria-hidden="true"
@@ -84,12 +85,12 @@ export function ConfirmForm({
             </div>
             <h2 className="mb-1.5 text-[1.35rem] font-bold text-navy">{title}</h2>
             <p className="m-0 text-muted">{detail}</p>
-            <div className="mt-6 flex justify-end gap-2.5">
+            <div className="modal-action mt-6 flex justify-end gap-2.5">
               <button
                 ref={cancelRef}
                 type="button"
                 onClick={() => setOpen(false)}
-                className="btn bg-[#eef2f1] text-good-ink"
+                className="btn btn-ghost text-good-ink"
               >
                 Cancel
               </button>
@@ -100,7 +101,7 @@ export function ConfirmForm({
                   setOpen(false);
                   formRef.current?.requestSubmit();
                 }}
-                className="btn bg-bad hover:bg-bad-dark"
+                className={confirmClasses}
               >
                 {confirmLabel}
               </button>

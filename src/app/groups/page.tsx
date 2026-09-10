@@ -27,16 +27,16 @@ export default async function GroupListPage() {
         <p className="muted m-0">Keep your shared meals and balances in one place.</p>
       </div>
 
-      <div className="rounded-[10px] border border-dashed border-[#b8c5c2] bg-[#f7fbf8] p-8">
+      <div className="card rounded-box border border-dashed border-[#b8c5c2] bg-[#f7fbf8] p-8">
         <strong className="mb-1.5 block text-navy">You&apos;re not in a group yet.</strong>
         <p className="muted m-0">Create a new mess or use an invite code to join one.</p>
       </div>
 
       <p className="mt-6 flex flex-wrap gap-2.5">
-        <Link href="/groups/create" className="btn max-[680px]:flex-[1_1_100%] max-[680px]:text-center">
+        <Link href="/groups/create" className="btn btn-primary max-[680px]:flex-[1_1_100%]">
           Create a group
         </Link>
-        <Link href="/groups/join" className="btn max-[680px]:flex-[1_1_100%] max-[680px]:text-center">
+        <Link href="/groups/join" className="btn btn-neutral max-[680px]:flex-[1_1_100%]">
           Join a group
         </Link>
       </p>

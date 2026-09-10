@@ -28,7 +28,7 @@ export default async function ExtraMealPage({ params }: PageProps) {
 
   return (
     <section className="mx-auto my-11 max-w-[560px] max-[680px]:my-6">
-      <div className="rounded-xl border border-sand bg-parchment px-[clamp(1.5rem,5vw,3rem)] py-10 shadow-[0_18px_45px_rgba(31,35,40,0.08)] max-[680px]:p-7">
+      <div className="card border border-sand bg-parchment px-[clamp(1.5rem,5vw,3rem)] py-10 shadow-[0_18px_45px_rgba(31,35,40,0.08)] max-[680px]:p-7">
         <h1 className="m-0 text-[clamp(1.8rem,5vw,2.35rem)] text-navy">Add extra meal</h1>
         <p className="mb-7 mt-2 text-muted">
           Add an additional meal for <strong>{targetUser.username}</strong> in {group.name}.

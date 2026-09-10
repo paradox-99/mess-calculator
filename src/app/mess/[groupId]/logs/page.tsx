@@ -43,7 +43,7 @@ export default async function LogsPage({ params }: PageProps) {
             {group.name} — every edit to every member&apos;s entries, newest first.
           </p>
         </div>
-        <span className="whitespace-nowrap rounded-full border border-[#d6e6ad] bg-good-wash px-3 py-1.5 text-[0.85rem] font-bold text-good-ink">
+        <span className="badge badge-success badge-soft badge-lg whitespace-nowrap font-bold">
           {logs.length} {logs.length === 1 ? "entry" : "entries"}
         </span>
       </div>
@@ -56,7 +56,7 @@ export default async function LogsPage({ params }: PageProps) {
 
         {logs.length > 0 ? (
           <div className="overflow-x-auto">
-            <table className="m-0 w-full min-w-[820px] border-collapse text-left">
+            <table className="table m-0 w-full min-w-[820px] border-collapse text-left">
               <thead>
                 <tr>
                   {["When", "Actor", "Target", "Date", "Action", "Field", "Old", "New"].map(
@@ -81,12 +81,12 @@ export default async function LogsPage({ params }: PageProps) {
                     <Td className="font-bold">{log.targetUser.username}</Td>
                     <Td className="whitespace-nowrap text-muted">{toISODate(log.entryDate)}</Td>
                     <Td>
-                      <span className="inline-block rounded-full bg-bad-wash px-2 py-0.5 text-[0.78rem] font-bold text-bad-ink">
+                      <span className="badge badge-error badge-soft badge-sm font-bold">
                         {ACTION_LABEL[log.action]}
                       </span>
                     </Td>
                     <Td>
-                      <span className="inline-block rounded-full bg-sea-wash px-2 py-0.5 text-[0.78rem] font-bold text-sea-dark">
+                      <span className="badge badge-secondary badge-soft badge-sm font-bold">
                         {log.fieldName}
                       </span>
                     </Td>
