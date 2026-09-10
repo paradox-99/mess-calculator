@@ -26,6 +26,9 @@ model User {
   lastName     String   @default("")
   passwordHash String
   createdAt    DateTime @default(now())
+  // Site-wide admin dashboard access. Distinct from a group's LEADER role,
+  // which only grants power inside that one group.
+  isSuperuser  Boolean  @default(false)
 
   memberships   GroupMembership[]
   groupsCreated Group[]             @relation("GroupCreatedBy")

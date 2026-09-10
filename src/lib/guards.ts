@@ -1,7 +1,7 @@
 import { forbidden, notFound } from "next/navigation";
-import type { Group } from "@/generated/prisma/client";
+import type { Group, User } from "@/generated/prisma/client";
 
-import { isLeader, isMember } from "@/lib/permissions";
+import { isLeader, isMember, isSuperuser } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -27,6 +27,11 @@ export async function requireLeaderGroup(userId: number, groupId: number): Promi
   const group = await requireMemberGroup(userId, groupId);
   if (!(await isLeader(userId, group.id))) forbidden();
   return group;
+}
+
+/** 403 unless the viewer is a superuser — gates the site-wide admin dashboard. */
+export function requireSuperuser(user: Pick<User, "isSuperuser">): void {
+  if (!isSuperuser(user)) forbidden();
 }
 
 /** Parses a route segment that must be a positive integer id, else 404. */

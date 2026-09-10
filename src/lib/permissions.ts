@@ -1,4 +1,4 @@
-import type { GroupMembership } from "@/generated/prisma/client";
+import type { GroupMembership, User } from "@/generated/prisma/client";
 
 import { prisma } from "@/lib/prisma";
 
@@ -43,6 +43,11 @@ export async function canEditEntry(
 /** Only the leader sees the audit trail. */
 export async function canViewLogs(userId: number, groupId: number): Promise<boolean> {
   return isLeader(userId, groupId);
+}
+
+/** Site-wide admin dashboard access — separate from a group's LEADER role. */
+export function isSuperuser(user: Pick<User, "isSuperuser">): boolean {
+  return user.isSuperuser;
 }
 
 /** The single active group a user belongs to, or null. */

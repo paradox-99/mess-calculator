@@ -23,7 +23,13 @@ async function main() {
   const passwordHash = await bcrypt.hash(PASSWORD, 10);
 
   const people = [
-    { username: "nayeem", email: "nayeem@example.com", firstName: "Nayeem", lastName: "R" },
+    {
+      username: "nayeem",
+      email: "nayeem@example.com",
+      firstName: "Nayeem",
+      lastName: "R",
+      isSuperuser: true,
+    },
     { username: "jhon", email: "jhon@example.com", firstName: "Jhon", lastName: "D" },
     { username: "rafi", email: "rafi@example.com", firstName: "Rafi", lastName: "H" },
   ];
@@ -34,7 +40,7 @@ async function main() {
       await prisma.user.upsert({
         where: { username: person.username },
         create: { ...person, passwordHash },
-        update: {},
+        update: { isSuperuser: person.isSuperuser ?? false },
       }),
     );
   }

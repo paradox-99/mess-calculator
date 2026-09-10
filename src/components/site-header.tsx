@@ -32,6 +32,11 @@ export async function SiteHeader() {
             <Link href="/groups" className="btn btn-sm btn-primary max-[680px]:hidden">
               My mess
             </Link>
+            {user.isSuperuser ? (
+              <Link href="/admin" className="btn btn-sm btn-secondary max-[680px]:hidden">
+                Admin
+              </Link>
+            ) : null}
             <Link
               href="/profile"
               className="btn btn-sm btn-warning max-w-40 rounded-full max-[680px]:hidden"
@@ -69,6 +74,13 @@ export async function SiteHeader() {
                     My mess
                   </Link>
                 </li>
+                {user.isSuperuser ? (
+                  <li>
+                    <Link href="/admin" className="font-semibold">
+                      Admin
+                    </Link>
+                  </li>
+                ) : null}
                 <li>
                   <form action={logout}>
                     <button type="submit" className="w-full text-left font-semibold">
