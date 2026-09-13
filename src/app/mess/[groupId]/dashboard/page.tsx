@@ -21,6 +21,12 @@ import { parseId, requireMemberGroup } from "@/lib/guards";
 import { isLeader } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
+import {
+  unpaidUtilityDues,
+  utilityStandings,
+  type MemberDues,
+  type UtilityStanding,
+} from "@/lib/utility-service";
 
 type PageProps = {
   params: Promise<{ groupId: string }>;
@@ -61,9 +67,22 @@ export default async function DashboardPage({ params, searchParams }: PageProps)
     orderBy: { user: { username: "asc" } },
   });
 
+  const [standings, dues] = await Promise.all([
+    utilityStandings(
+      group.id,
+      monthCycle.id,
+      memberships.map((membership) => membership.userId),
+    ),
+    unpaidUtilityDues(
+      group.id,
+      monthCycle.id,
+      memberships.map((membership) => membership.user),
+    ),
+  ]);
   const rows = await Promise.all(
     memberships.map(async (membership) => ({
       user: membership.user,
+      utilities: standings.get(membership.userId) ?? "none",
       ...(await balanceFor(monthCycle, membership.userId)),
     })),
   );
@@ -159,6 +178,13 @@ export default async function DashboardPage({ params, searchParams }: PageProps)
           </div>
         ) : null}
 
+        {dues.length > 0 ? (
+          <UnpaidUtilitiesPanel
+            dues={dues}
+            href={`/mess/${group.id}/utilities?year=${monthCycle.year}&month=${monthCycle.month}`}
+          />
+        ) : null}
+
         <section className="panel shadow-[0_10px_24px_rgba(23,43,58,0.05)]">
           <div className="flex items-center justify-between border-b border-line px-5 py-[1.1rem] max-[680px]:p-4">
             <h2 className="m-0 text-[1.1rem] text-brand">Member balances</h2>
@@ -171,7 +197,7 @@ export default async function DashboardPage({ params, searchParams }: PageProps)
             <table className="table m-0 w-full min-w-[680px] border-collapse text-left max-[680px]:block max-[680px]:min-w-0 max-[680px]:text-[0.88rem]">
               <thead className="max-[680px]:hidden">
                 <tr>
-                  {["Member", "Cost paid", "Meals", "Due", "Balance", ""].map((heading, index) => (
+                  {["Member", "Cost paid", "Meals", "Due", "Balance", "Utilities", ""].map((heading, index) => (
                     <th
                       key={heading || index}
                       className="border-b border-line bg-brand-wash px-5 py-3.5 text-[0.78rem] font-semibold uppercase tracking-[0.04em] text-muted"
@@ -199,37 +225,56 @@ export default async function DashboardPage({ params, searchParams }: PageProps)
                     >
                       {money(row.balance)}
                     </Cell>
-                    <td className="min-w-[210px] border-b border-line px-5 py-3.5 max-[680px]:block max-[680px]:min-w-0 max-[680px]:border-b-0 max-[680px]:px-0 max-[680px]:pb-0 max-[680px]:pt-2 max-[680px]:text-left">
+                    <Cell label="Utilities">
+                      <UtilityStatus
+                        standing={row.utilities}
+                        href={`/mess/${group.id}/utilities?year=${monthCycle.year}&month=${monthCycle.month}`}
+                      />
+                    </Cell>
+                    <td className="border-b border-line px-5 py-3.5 text-right max-[680px]:block max-[680px]:border-b-0 max-[680px]:px-0 max-[680px]:pb-0 max-[680px]:pt-2 max-[680px]:text-left">
                       {viewerIsLeader || row.user.id === user.id ? (
-                        <>
-                          <Link
-                            href={`/mess/${group.id}/entry/${row.user.id}`}
-                            className="font-bold text-good no-underline hover:underline max-[680px]:text-[0.78rem]"
-                          >
-                            Add Meal
-                          </Link>
-                          <Link
-                            href={`/mess/${group.id}/entry/bulk/${row.user.id}`}
-                            className="ml-2.5 text-[0.82rem] font-bold text-sea-dark no-underline hover:underline max-[680px]:text-[0.78rem]"
-                          >
-                            Multiple days
-                          </Link>
-                        </>
-                      ) : null}
-                      {viewerIsLeader ? (
-                        <Link
-                          href={`/mess/${group.id}/extra-meal/${row.user.id}`}
-                          className="ml-2.5 text-[0.82rem] font-bold text-gold-deep no-underline hover:underline max-[680px]:text-[0.78rem]"
-                        >
-                          Extra meal
-                        </Link>
-                      ) : null}
-                      {viewerIsLeader && row.user.id !== user.id ? (
-                        <RemoveMemberButton
-                          groupId={group.id}
-                          userId={row.user.id}
-                          username={row.user.username}
-                        />
+                        <details className="dropdown dropdown-end max-[680px]:dropdown-start">
+                          <summary className="btn btn-outline btn-primary btn-xs gap-1 font-semibold">
+                            Actions <span aria-hidden="true">▾</span>
+                          </summary>
+                          <ul className="menu dropdown-content z-10 mt-1 w-44 rounded-(--radius-box) border border-line bg-base-100 p-1.5 text-sm shadow-[0_12px_28px_rgba(23,43,58,0.16)]">
+                            <li>
+                              <Link
+                                href={`/mess/${group.id}/entry/${row.user.id}`}
+                                className="font-semibold text-good"
+                              >
+                                Add meal
+                              </Link>
+                            </li>
+                            <li>
+                              <Link
+                                href={`/mess/${group.id}/entry/bulk/${row.user.id}`}
+                                className="font-semibold text-sea-dark"
+                              >
+                                Multiple days
+                              </Link>
+                            </li>
+                            {viewerIsLeader ? (
+                              <li>
+                                <Link
+                                  href={`/mess/${group.id}/extra-meal/${row.user.id}`}
+                                  className="font-semibold text-gold-deep"
+                                >
+                                  Extra meal
+                                </Link>
+                              </li>
+                            ) : null}
+                            {viewerIsLeader && row.user.id !== user.id ? (
+                              <li className="mt-1 border-t border-line pt-1">
+                                <RemoveMemberButton
+                                  groupId={group.id}
+                                  userId={row.user.id}
+                                  username={row.user.username}
+                                />
+                              </li>
+                            ) : null}
+                          </ul>
+                        </details>
                       ) : null}
                     </td>
                   </tr>
@@ -255,6 +300,12 @@ export default async function DashboardPage({ params, searchParams }: PageProps)
             className="btn btn-warning"
           >
             Daily meal details
+          </Link>
+          <Link
+            href={`/mess/${group.id}/utilities?year=${monthCycle.year}&month=${monthCycle.month}`}
+            className="btn btn-info btn-soft"
+          >
+            {viewerIsLeader ? "Utilities" : "Utility bills"}
           </Link>
           {viewerIsLeader ? (
             <>
@@ -299,6 +350,85 @@ function SummaryCard({
       <span className="stat-title text-[0.85rem] text-muted">{label}</span>
       <span className={`stat-value text-[1.45rem] font-bold ${valueClass}`}>{value}</span>
     </div>
+  );
+}
+
+const UTILITY_STATUS: Record<UtilityStanding, { className: string; glyph: string; title: string }> = {
+  "all-paid": {
+    className: "border-check bg-check text-white shadow-[0_3px_8px_rgba(35,132,93,0.25)]",
+    glyph: "✓",
+    title: "All utilities paid",
+  },
+  unpaid: {
+    className: "border-bad bg-bad text-white shadow-[0_3px_8px_rgba(179,67,43,0.25)]",
+    glyph: "✕",
+    title: "Utilities still due",
+  },
+  none: {
+    className: "border-[#c7d4d1] bg-[#f5f8f7] text-[#aebbb8]",
+    glyph: "·",
+    title: "No utilities defined",
+  },
+};
+
+/**
+ * Who still owes which utility bills this month. Only members with something
+ * outstanding are listed; the caller hides the panel when nobody does.
+ */
+function UnpaidUtilitiesPanel({ dues, href }: { dues: MemberDues[]; href: string }) {
+  return (
+    <section
+      aria-label="Unpaid utility bills"
+      className="panel mb-6 border-bad-edge shadow-[0_10px_24px_rgba(179,67,43,0.06)]"
+    >
+      <div className="flex items-center justify-between gap-3 border-b border-bad-edge bg-bad-wash px-5 py-[1.1rem] max-[680px]:p-4">
+        <h2 className="m-0 text-[1.1rem] text-bad-ink">Unpaid utility bills</h2>
+        <Link href={href} className="text-[0.85rem] font-bold text-bad-ink no-underline hover:underline">
+          Mark as paid →
+        </Link>
+      </div>
+      <ul className="m-0 list-none divide-y divide-line p-0">
+        {dues.map(({ user, unpaid, total }) => (
+          <li
+            key={user.id}
+            className="flex items-start justify-between gap-4 px-5 py-3.5 max-[680px]:flex-col max-[680px]:gap-2 max-[680px]:px-4"
+          >
+            <div className="min-w-0">
+              <span className="font-bold">{user.username}</span>
+              <ul className="m-0 mt-1 flex list-none flex-wrap gap-1.5 p-0">
+                {unpaid.map((bill) => (
+                  <li key={bill.name} className="badge badge-error badge-soft badge-sm font-semibold">
+                    {bill.name}
+                    {bill.amount ? `: ${money(bill.amount)}` : ""}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="shrink-0 text-right max-[680px]:text-left">
+              <span className="block text-[0.7rem] font-bold uppercase tracking-[0.04em] text-muted">
+                Total due
+              </span>
+              <span className="text-[1.05rem] font-bold text-bad">{money(total)}</span>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** Green tick when a member has paid every utility this month, red cross otherwise. */
+function UtilityStatus({ standing, href }: { standing: UtilityStanding; href: string }) {
+  const { className, glyph, title } = UTILITY_STATUS[standing];
+  return (
+    <Link
+      href={href}
+      title={title}
+      aria-label={title}
+      className={`inline-grid h-[1.7rem] w-[1.7rem] place-items-center rounded-full border text-[0.85rem] font-extrabold no-underline ${className}`}
+    >
+      {glyph}
+    </Link>
   );
 }
 

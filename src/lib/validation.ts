@@ -160,7 +160,40 @@ export const dailyEntrySchema = z.object({
   lunch: z.coerce.boolean().default(false),
   dinner: z.coerce.boolean().default(false),
   cost: costSchema,
+  maidAbsentLunch: z.coerce.boolean().default(false),
+  maidAbsentDinner: z.coerce.boolean().default(false),
 });
+
+/** A required money amount — a utility bill can't be left blank. */
+export const utilityAmountSchema = z
+  .string()
+  .trim()
+  .min(1, "This field is required.")
+  .regex(/^\d{1,6}(\.\d{1,2})?$/, "Enter a number with at most 2 decimal places.");
+
+export const utilityTypeSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(1, "This field is required.")
+      .max(60, "Keep the name under 60 characters."),
+    // "same": one figure for everyone. "individual": one per member, which the
+    // action validates separately because the member list comes from the DB.
+    split: z.enum(["same", "individual"]),
+    amount: z.string().trim(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.split !== "same") return;
+    const result = utilityAmountSchema.safeParse(data.amount);
+    if (!result.success) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["amount"],
+        message: result.error.issues[0]?.message ?? "Enter a valid amount.",
+      });
+    }
+  });
 
 export const extraMealSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a valid date."),

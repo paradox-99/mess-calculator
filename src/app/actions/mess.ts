@@ -13,6 +13,7 @@ import {
   entryForDate,
   PermissionError,
   recordDailyEntry,
+  setMaidAbsence,
   type DailyEntryValues,
 } from "@/lib/mess-service";
 import { compareYearMonth, currentYearMonth, parseISODate } from "@/lib/date";
@@ -36,6 +37,8 @@ export async function saveDailyEntry(
     lunch: formData.get("lunch") ? "on" : "",
     dinner: formData.get("dinner") ? "on" : "",
     cost: text(formData, "cost"),
+    maid_absent_lunch: formData.get("maid_absent_lunch") ? "on" : "",
+    maid_absent_dinner: formData.get("maid_absent_dinner") ? "on" : "",
   };
 
   const parsed = dailyEntrySchema.safeParse({
@@ -43,6 +46,8 @@ export async function saveDailyEntry(
     lunch: Boolean(formData.get("lunch")),
     dinner: Boolean(formData.get("dinner")),
     cost: values.cost,
+    maidAbsentLunch: Boolean(formData.get("maid_absent_lunch")),
+    maidAbsentDinner: Boolean(formData.get("maid_absent_dinner")),
   });
   if (!parsed.success) return { errors: fieldErrors(parsed.error), values };
 
@@ -50,13 +55,21 @@ export async function saveDailyEntry(
   if (!date) return { errors: { date: ["Enter a valid date."] }, values };
 
   try {
+    // The absence is saved first so the entry write below sees it.
+    await setMaidAbsence({
+      actorId: actor.id,
+      groupId,
+      date,
+      lunch: parsed.data.maidAbsentLunch,
+      dinner: parsed.data.maidAbsentDinner,
+    });
     await recordDailyEntry({
       actorId: actor.id,
       groupId,
       targetUserId,
       date,
-      lunch: parsed.data.lunch ? ONE : ZERO,
-      dinner: parsed.data.dinner ? ONE : ZERO,
+      lunch: parsed.data.lunch && !parsed.data.maidAbsentLunch ? ONE : ZERO,
+      dinner: parsed.data.dinner && !parsed.data.maidAbsentDinner ? ONE : ZERO,
       cost: new Prisma.Decimal(parsed.data.cost),
     });
   } catch (error) {
@@ -70,7 +83,12 @@ export async function saveDailyEntry(
   redirect(`/mess/${groupId}/dashboard`);
 }
 
-const EMPTY_ENTRY: DailyEntryValues = { lunch: false, dinner: false, cost: "" };
+const EMPTY_ENTRY: DailyEntryValues = {
+  lunch: false,
+  dinner: false,
+  cost: "",
+  maidAbsent: { lunch: false, dinner: false },
+};
 
 /** Lets the entry form re-fetch a single date's record when the user picks a new date. */
 export async function getDailyEntryValues(
@@ -132,12 +150,20 @@ export async function saveBulkDailyEntries(
     values[`lunch_${dateIso}`] = formData.get(`lunch_${dateIso}`) ? "on" : "";
     values[`dinner_${dateIso}`] = formData.get(`dinner_${dateIso}`) ? "on" : "";
     values[`cost_${dateIso}`] = text(formData, `cost_${dateIso}`);
+    values[`maid_absent_lunch_${dateIso}`] = formData.get(`maid_absent_lunch_${dateIso}`)
+      ? "on"
+      : "";
+    values[`maid_absent_dinner_${dateIso}`] = formData.get(`maid_absent_dinner_${dateIso}`)
+      ? "on"
+      : "";
 
     const parsed = dailyEntrySchema.safeParse({
       date: dateIso,
       lunch: Boolean(formData.get(`lunch_${dateIso}`)),
       dinner: Boolean(formData.get(`dinner_${dateIso}`)),
       cost: values[`cost_${dateIso}`],
+      maidAbsentLunch: Boolean(formData.get(`maid_absent_lunch_${dateIso}`)),
+      maidAbsentDinner: Boolean(formData.get(`maid_absent_dinner_${dateIso}`)),
     });
     if (!parsed.success) {
       errors[dateIso] = [parsed.error.issues[0]?.message ?? "Enter a valid entry."];
@@ -151,13 +177,20 @@ export async function saveBulkDailyEntries(
     }
 
     try {
+      await setMaidAbsence({
+        actorId: actor.id,
+        groupId,
+        date,
+        lunch: parsed.data.maidAbsentLunch,
+        dinner: parsed.data.maidAbsentDinner,
+      });
       await recordDailyEntry({
         actorId: actor.id,
         groupId,
         targetUserId,
         date,
-        lunch: parsed.data.lunch ? ONE : ZERO,
-        dinner: parsed.data.dinner ? ONE : ZERO,
+        lunch: parsed.data.lunch && !parsed.data.maidAbsentLunch ? ONE : ZERO,
+        dinner: parsed.data.dinner && !parsed.data.maidAbsentDinner ? ONE : ZERO,
         cost: new Prisma.Decimal(parsed.data.cost),
       });
     } catch (error) {

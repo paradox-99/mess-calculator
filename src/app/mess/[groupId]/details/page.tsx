@@ -45,14 +45,24 @@ export default async function MealDetailsPage({ params, searchParams }: PageProp
   });
   const members = memberships.map((membership) => membership.user);
 
-  const entries = await prisma.dailyEntry.findMany({
-    where: { monthCycleId: monthCycle.id },
-    orderBy: [{ date: "asc" }],
-  });
+  const [entries, maidAbsences] = await Promise.all([
+    prisma.dailyEntry.findMany({
+      where: { monthCycleId: monthCycle.id },
+      orderBy: [{ date: "asc" }],
+    }),
+    prisma.maidAbsence.findMany({
+      where: { monthCycleId: monthCycle.id },
+      select: { date: true, lunch: true, dinner: true },
+    }),
+  ]);
 
   // (date, user) → entry, so each cell in the grid is a direct lookup.
   const entryMap = new Map(
     entries.map((entry) => [`${toISODate(entry.date)}:${entry.userId}`, entry]),
+  );
+  // date → which sittings the maid skipped; the same for every member.
+  const absenceMap = new Map(
+    maidAbsences.map((absence) => [toISODate(absence.date), absence]),
   );
 
   const extraMeals = new Map(members.map((member) => [member.id, new Prisma.Decimal(0)]));
@@ -68,6 +78,7 @@ export default async function MealDetailsPage({ params, searchParams }: PageProp
     return {
       key,
       ...dayCell(date),
+      maidAbsent: absenceMap.get(key) ?? { lunch: false, dinner: false },
       cells: members.map((member) => entryMap.get(`${key}:${member.id}`) ?? null),
     };
   });
@@ -140,8 +151,14 @@ export default async function MealDetailsPage({ params, searchParams }: PageProp
                               : "No meals recorded"
                           }
                         >
-                          <MealCheck eaten={entry ? entry.lunch.greaterThan(0) : false} />
-                          <MealCheck eaten={entry ? entry.dinner.greaterThan(0) : false} />
+                          <MealCheck
+                            status={mealStatus(entry?.lunch, row.maidAbsent.lunch)}
+                            title={`Lunch${row.maidAbsent.lunch ? " — maid absent" : ""}`}
+                          />
+                          <MealCheck
+                            status={mealStatus(entry?.dinner, row.maidAbsent.dinner)}
+                            title={`Dinner${row.maidAbsent.dinner ? " — maid absent" : ""}`}
+                          />
                         </div>
                       </td>
                     ))}
@@ -149,6 +166,17 @@ export default async function MealDetailsPage({ params, searchParams }: PageProp
                 ))}
               </tbody>
             </table>
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-line px-4 py-3 text-[0.8rem] text-muted">
+              <span className="flex items-center gap-2">
+                <MealCheck status="eaten" title="Eaten" /> Eaten
+              </span>
+              <span className="flex items-center gap-2">
+                <MealCheck status="skipped" title="Not eaten" /> Not eaten
+              </span>
+              <span className="flex items-center gap-2">
+                <MealCheck status="maid-absent" title="Maid absent" /> Maid absent
+              </span>
+            </div>
           </div>
         ) : (
           <div className="px-4 py-10 text-center text-muted">
@@ -184,16 +212,33 @@ export default async function MealDetailsPage({ params, searchParams }: PageProp
   );
 }
 
-function MealCheck({ eaten }: { eaten: boolean }) {
+type MealStatus = "eaten" | "skipped" | "maid-absent";
+
+function mealStatus(meal: Prisma.Decimal | undefined, maidAbsent: boolean): MealStatus {
+  if (maidAbsent) return "maid-absent";
+  return meal?.greaterThan(0) ? "eaten" : "skipped";
+}
+
+const MEAL_CHECK_STYLE: Record<MealStatus, { className: string; glyph: string }> = {
+  eaten: {
+    className: "border-check bg-check text-white shadow-[0_3px_8px_rgba(35,132,93,0.25)]",
+    glyph: "✓",
+  },
+  skipped: { className: "border-[#c7d4d1] bg-[#f5f8f7] text-[#aebbb8]", glyph: "·" },
+  "maid-absent": {
+    className: "border-bad bg-bad text-white shadow-[0_3px_8px_rgba(179,67,43,0.25)]",
+    glyph: "✕",
+  },
+};
+
+function MealCheck({ status, title }: { status: MealStatus; title: string }) {
+  const { className, glyph } = MEAL_CHECK_STYLE[status];
   return (
     <span
-      className={`inline-grid h-[1.7rem] w-[1.7rem] place-items-center rounded-full border text-[0.85rem] font-extrabold ${
-        eaten
-          ? "border-check bg-check text-white shadow-[0_3px_8px_rgba(35,132,93,0.25)]"
-          : "border-[#c7d4d1] bg-[#f5f8f7] text-[#aebbb8]"
-      }`}
+      title={title}
+      className={`inline-grid h-[1.7rem] w-[1.7rem] place-items-center rounded-full border text-[0.85rem] font-extrabold ${className}`}
     >
-      {eaten ? "✓" : "·"}
+      {glyph}
     </span>
   );
 }

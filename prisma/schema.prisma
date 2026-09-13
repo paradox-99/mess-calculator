@@ -30,12 +30,15 @@ model User {
   // which only grants power inside that one group.
   isSuperuser  Boolean  @default(false)
 
-  memberships   GroupMembership[]
-  groupsCreated Group[]             @relation("GroupCreatedBy")
-  entries       DailyEntry[]
-  enrollments   MonthlyEnrollment[]
-  actorLogs     ActivityLog[]       @relation("LogActor")
-  targetLogs    ActivityLog[]       @relation("LogTarget")
+  memberships     GroupMembership[]
+  groupsCreated   Group[]             @relation("GroupCreatedBy")
+  entries         DailyEntry[]
+  enrollments     MonthlyEnrollment[]
+  actorLogs       ActivityLog[]       @relation("LogActor")
+  targetLogs      ActivityLog[]       @relation("LogTarget")
+  maidAbsences    MaidAbsence[]       @relation("MaidAbsenceMarkedBy")
+  utilityPayments UtilityPayment[]
+  utilityAmounts  UtilityAmount[]
 }
 
 model Group {
@@ -47,10 +50,11 @@ model Group {
 
   // Restrict, like Django's on_delete=PROTECT: a user who created a group
   // can't be deleted out from under it.
-  createdBy   User              @relation("GroupCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  memberships GroupMembership[]
-  months      MonthCycle[]
-  logs        ActivityLog[]
+  createdBy    User              @relation("GroupCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  memberships  GroupMembership[]
+  months       MonthCycle[]
+  logs         ActivityLog[]
+  utilityTypes UtilityType[]
 }
 
 enum Role {
@@ -89,11 +93,83 @@ model MonthCycle {
   cachedTotalMeals Decimal @default(0) @db.Decimal(8, 2)
   cachedMealRate   Decimal @default(0) @db.Decimal(8, 4)
 
-  group       Group               @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  entries     DailyEntry[]
-  enrollments MonthlyEnrollment[]
+  group           Group               @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  entries         DailyEntry[]
+  enrollments     MonthlyEnrollment[]
+  maidAbsences    MaidAbsence[]
+  utilityPayments UtilityPayment[]
 
   @@unique([groupId, year, month])
+}
+
+/// A recurring bill the group shares (gas, wifi, electricity…). Each group
+/// defines its own; only the leader creates or changes them. Removing one
+/// deactivates it so past months' payments still line up.
+model UtilityType {
+  id         Int      @id @default(autoincrement())
+  groupId    Int
+  name       String
+  // Bills like wifi split evenly; bills like rent differ per room. When
+  // sameForAll is set, `amount` applies to every member (including anyone
+  // who joins later); otherwise each member's figure lives in UtilityAmount
+  // and `amount` is unused.
+  sameForAll Boolean  @default(true)
+  amount     Decimal? @db.Decimal(8, 2)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  group         Group            @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  memberAmounts UtilityAmount[]
+  payments      UtilityPayment[]
+
+  @@index([groupId, isActive])
+}
+
+/// One member's share of a utility that isn't split evenly. Leader-set.
+model UtilityAmount {
+  id            Int     @id @default(autoincrement())
+  utilityTypeId Int
+  userId        Int
+  amount        Decimal @db.Decimal(8, 2)
+
+  utilityType UtilityType @relation(fields: [utilityTypeId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([utilityTypeId, userId])
+}
+
+/// One member having paid one utility for one month. Existence is the flag —
+/// unticking deletes the row.
+model UtilityPayment {
+  id            Int      @id @default(autoincrement())
+  utilityTypeId Int
+  monthCycleId  Int
+  userId        Int
+  paidAt        DateTime @default(now())
+
+  utilityType UtilityType @relation(fields: [utilityTypeId], references: [id], onDelete: Cascade)
+  monthCycle  MonthCycle  @relation(fields: [monthCycleId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([utilityTypeId, monthCycleId, userId])
+  @@index([monthCycleId, userId])
+}
+
+/// The maid didn't cook a sitting, so nobody in the group gets that meal.
+/// One row per date, shared by the whole group — any member may mark it.
+model MaidAbsence {
+  id           Int      @id @default(autoincrement())
+  monthCycleId Int
+  date         DateTime @db.Date
+  lunch        Boolean  @default(false)
+  dinner       Boolean  @default(false)
+  markedById   Int
+  updatedAt    DateTime @updatedAt
+
+  monthCycle MonthCycle @relation(fields: [monthCycleId], references: [id], onDelete: Cascade)
+  markedBy   User       @relation("MaidAbsenceMarkedBy", fields: [markedById], references: [id], onDelete: Restrict)
+
+  @@unique([monthCycleId, date])
 }
 
 /// A member opting into a given month's cycle.

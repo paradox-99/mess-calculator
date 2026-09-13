@@ -15,7 +15,6 @@ export function RemoveMemberButton({
 }) {
   return (
     <ConfirmForm
-      className="ml-2.5 inline"
       action={removeMember.bind(null, groupId, userId)}
       title="Remove member?"
       confirmLabel="Remove member"
@@ -25,11 +24,9 @@ export function RemoveMemberButton({
         </>
       )}
     >
-      <button
-        type="submit"
-        className="btn btn-ghost btn-xs text-[0.82rem] font-semibold text-bad hover:text-bad-dark max-[680px]:text-[0.78rem]"
-      >
-        Remove
+      {/* Styled as a menu row so it lines up with the links around it. */}
+      <button type="submit" className="w-full text-left font-semibold text-bad hover:text-bad-dark">
+        Remove member
       </button>
     </ConfirmForm>
   );

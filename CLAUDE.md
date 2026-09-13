@@ -101,6 +101,10 @@ data corruption, not a crash.
 - **Pin Prisma.** `prisma@latest` currently resolves to an `8.0.0` release
   candidate with a completely different CLI (no `generate`/`migrate`). Stay on
   the `7.x` line and keep `prisma` and `@prisma/client` on the same version.
+- **Migrations hang on Supabase's transaction pooler (port 6543).** Set
+  `DIRECT_URL` to the session-mode connection (same host, port 5432);
+  `prisma.config.ts` prefers it for the CLI while the app stays on
+  `DATABASE_URL`.
 - **Prisma 7 uses a driver adapter.** The connection URL lives in
   `prisma.config.ts` (not `schema.prisma`), and the client is constructed with
   `new PrismaClient({ adapter: new PrismaPg({ connectionString }) })`.
@@ -137,9 +141,33 @@ data corruption, not a crash.
   rather than assuming one exists.
 - Removing a member deactivates the membership (`isActive: false`, `leftAt`)
   rather than deleting it, so their historical entries survive.
+- **Maid absence** (`MaidAbsence`, one row per group-date with lunch/dinner
+  flags) is group-wide: any member may mark it from the entry forms. Marking a
+  sitting absent clears that meal on every member's entry for the date (audited
+  under the marker) and `recordDailyEntry()` rejects logging it afterwards.
+  Unmarking restores nothing.
+- **Utilities** (`UtilityType` + `UtilityAmount` + `UtilityPayment`): the
+  leader defines the group's utility types; removal deactivates. A type is
+  either `sameForAll` (one `amount` for everyone, covering members who join
+  later) or per member (`UtilityAmount` rows; a member with no row shows
+  "Not set"). `amountFor()` in `lib/utility-service.ts` resolves which.
+  Payments are per month cycle — members tick their own, the leader can tick
+  anyone's (same rule as `canEditEntry`). The dashboard's Utilities column is
+  green only when every active type is paid for that month. Not blocked by a
+  closed month, since bills are often paid late.
 
 ## Not built yet
 
 The Django project had an empty `notifications` app intended for a monthly
 summary email to the group once the leader closes a month. Closing works; the
 email does not exist here.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

@@ -5,7 +5,8 @@ import { useActionState } from "react";
 
 import { getDailyEntryValues, saveDailyEntry } from "@/app/actions/mess";
 import { DateField } from "@/components/date-field";
-import { FieldErrors, MealCheckbox, NonFieldErrors } from "@/components/form-fields";
+import { FieldErrors, NonFieldErrors } from "@/components/form-fields";
+import { MealField } from "@/components/meal-field";
 import { SubmitButton } from "@/components/submit-button";
 import { emptyFormState } from "@/lib/form";
 import type { DailyEntryValues } from "@/lib/mess-service";
@@ -43,6 +44,12 @@ export function DailyEntryForm({
   const lunchChecked = state.values ? state.values.lunch === "on" : prefill.lunch;
   const dinnerChecked = state.values ? state.values.dinner === "on" : prefill.dinner;
   const costValue = state.values?.cost ?? prefill.cost;
+  const maidAbsentLunch = state.values
+    ? state.values.maid_absent_lunch === "on"
+    : prefill.maidAbsent.lunch;
+  const maidAbsentDinner = state.values
+    ? state.values.maid_absent_dinner === "on"
+    : prefill.maidAbsent.dinner;
   // Remounts the fields below whenever the shown date changes, since
   // defaultChecked/defaultValue only apply the first time an input mounts.
   const fieldsKey = state.values?.date ?? prefill.date;
@@ -65,8 +72,20 @@ export function DailyEntryForm({
           aria-label="Meals eaten"
           className="mb-5 grid grid-cols-2 gap-3 max-[520px]:grid-cols-1"
         >
-          <MealCheckbox name="lunch" label="Lunch eaten" defaultChecked={lunchChecked} />
-          <MealCheckbox name="dinner" label="Dinner eaten" defaultChecked={dinnerChecked} />
+          <MealField
+            name="lunch"
+            label="Lunch eaten"
+            defaultChecked={lunchChecked}
+            maidAbsentName="maid_absent_lunch"
+            defaultMaidAbsent={maidAbsentLunch}
+          />
+          <MealField
+            name="dinner"
+            label="Dinner eaten"
+            defaultChecked={dinnerChecked}
+            maidAbsentName="maid_absent_dinner"
+            defaultMaidAbsent={maidAbsentDinner}
+          />
         </div>
 
         <div className="mb-[1.15rem]">

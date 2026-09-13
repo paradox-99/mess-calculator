@@ -31,34 +31,6 @@ export function NonFieldErrors({ state }: { state: FormState }) {
   );
 }
 
-/** The lunch/dinner "did you eat this" checkbox, styled as a filled tile. */
-export function MealCheckbox({
-  name,
-  label,
-  defaultChecked,
-}: {
-  name: string;
-  label: string;
-  defaultChecked: boolean;
-}) {
-  const id = `id_${name}`;
-  return (
-    <label
-      htmlFor={id}
-      className="flex min-h-[3.25rem] cursor-pointer items-center gap-3 rounded-(--radius-field) border border-base-300 bg-base-200 px-4 py-3 transition-[border-color,background] duration-150 has-[input:checked]:border-success has-[input:checked]:bg-good-wash has-[input:checked]:text-good-deep max-[520px]:min-h-[2.5rem] max-[520px]:gap-2 max-[520px]:px-3 max-[520px]:py-1.5"
-    >
-      <input
-        id={id}
-        name={name}
-        type="checkbox"
-        defaultChecked={defaultChecked}
-        className="checkbox checkbox-success checkbox-sm max-[520px]:checkbox-xs"
-      />
-      <span className="font-medium max-[520px]:text-[0.85rem]">{label}</span>
-    </label>
-  );
-}
-
 type TextFieldProps = {
   name: string;
   label: string;

@@ -3,7 +3,8 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 
 import { getDailyEntryValuesForDates, saveBulkDailyEntries } from "@/app/actions/mess";
-import { FieldErrors, MealCheckbox, NonFieldErrors } from "@/components/form-fields";
+import { FieldErrors, NonFieldErrors } from "@/components/form-fields";
+import { MealField } from "@/components/meal-field";
 import { SubmitButton } from "@/components/submit-button";
 import { formatISODateLabel } from "@/lib/date";
 import { emptyFormState } from "@/lib/form";
@@ -107,7 +108,12 @@ function DayCard({
   values: DailyEntryValues | undefined;
   errors?: string[];
 }) {
-  const { lunch, dinner, cost } = values ?? { lunch: false, dinner: false, cost: "" };
+  const { lunch, dinner, cost, maidAbsent } = values ?? {
+    lunch: false,
+    dinner: false,
+    cost: "",
+    maidAbsent: { lunch: false, dinner: false },
+  };
   return (
     <div className="rounded-(--radius-box) border border-line bg-base-200/40 p-4 max-[520px]:p-3">
       <div className="mb-3 font-semibold max-[520px]:mb-2 max-[520px]:text-[0.95rem]">
@@ -115,8 +121,20 @@ function DayCard({
       </div>
       <FieldErrors messages={errors} />
       <div className="mb-3 grid grid-cols-2 gap-3 max-[520px]:grid-cols-1 max-[520px]:gap-2">
-        <MealCheckbox name={`lunch_${dateIso}`} label="Lunch eaten" defaultChecked={lunch} />
-        <MealCheckbox name={`dinner_${dateIso}`} label="Dinner eaten" defaultChecked={dinner} />
+        <MealField
+          name={`lunch_${dateIso}`}
+          label="Lunch eaten"
+          defaultChecked={lunch}
+          maidAbsentName={`maid_absent_lunch_${dateIso}`}
+          defaultMaidAbsent={maidAbsent.lunch}
+        />
+        <MealField
+          name={`dinner_${dateIso}`}
+          label="Dinner eaten"
+          defaultChecked={dinner}
+          maidAbsentName={`maid_absent_dinner_${dateIso}`}
+          defaultMaidAbsent={maidAbsent.dinner}
+        />
       </div>
       <div>
         <label className="field-label" htmlFor={`id_cost_${dateIso}`}>
