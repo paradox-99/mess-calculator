@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 type ConfirmFormProps = {
   action: (formData: FormData) => void | Promise<void>;
@@ -64,7 +65,13 @@ export function ConfirmForm({
         {children}
       </form>
 
-      {open ? (
+      {/*
+        Portalled to <body>: a `position: fixed` dialog is positioned against
+        the nearest transformed ancestor, so left in place it would render
+        inside (and be clipped by) a dropdown or scrolling table wrapper.
+        Only rendered after a click, so `document` is always available.
+      */}
+      {open ? createPortal(
         <div
           role="dialog"
           aria-modal="true"
@@ -107,7 +114,8 @@ export function ConfirmForm({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       ) : null}
     </>
   );
