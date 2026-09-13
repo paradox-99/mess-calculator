@@ -75,7 +75,7 @@ export default async function DashboardPage({ params, searchParams }: PageProps)
     ),
     unpaidUtilityDues(
       group.id,
-      monthCycle.id,
+      monthCycle,
       memberships.map((membership) => membership.user),
     ),
   ]);

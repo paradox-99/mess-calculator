@@ -3,26 +3,34 @@
 import { useActionState, useOptimistic, useState, useTransition } from "react";
 
 import {
+  copyBillsFromPreviousMonth,
   createUtilityType,
   removeUtilityType,
   setUtilityPaid,
-  updateUtilityType,
+  updateUtilityBill,
 } from "@/app/actions/utilities";
 import { ConfirmForm } from "@/components/confirm-form";
 import { FieldErrors, NonFieldErrors } from "@/components/form-fields";
 import { SubmitButton } from "@/components/submit-button";
+import type { YearMonth } from "@/lib/date";
 import { emptyFormState, type FormState } from "@/lib/form";
 
 const INPUT = "input input-sm w-full max-[520px]:text-sm";
 
 export type UtilityMember = { id: number; username: string };
 
-type UtilityDefaults = {
+export type UtilityDefaults = {
   name: string;
   split: "same" | "individual";
   amount: string;
   /** userId → amount, for the individual split. */
   amounts: Record<number, string>;
+  /**
+   * Set when this month has no bill yet and the figures above were copied
+   * from an earlier month — the editor says so, since nothing is saved
+   * until the leader confirms.
+   */
+  prefilledFrom?: string;
 };
 
 const EMPTY_DEFAULTS: UtilityDefaults = { name: "", split: "same", amount: "", amounts: {} };
@@ -134,13 +142,15 @@ function UtilityFields({
 /** Leader only: "add a utility" — clears itself after a successful save. */
 export function AddUtilityForm({
   groupId,
+  month,
   members,
 }: {
   groupId: number;
+  month: YearMonth;
   members: UtilityMember[];
 }) {
   const [state, formAction] = useActionState(
-    createUtilityType.bind(null, groupId),
+    createUtilityType.bind(null, groupId, month),
     emptyFormState,
   );
   // Remount the fields after each successful save so their defaultValues
@@ -169,20 +179,25 @@ export function AddUtilityForm({
   );
 }
 
-/** Leader only: inline rename / re-split / re-price, plus a confirmed remove. */
+/**
+ * Leader only: rename the utility and set this month's bill (split + amounts)
+ * inline, plus a confirmed remove.
+ */
 export function UtilityTypeEditor({
   groupId,
   utilityTypeId,
+  month,
   members,
   defaults,
 }: {
   groupId: number;
   utilityTypeId: number;
+  month: YearMonth;
   members: UtilityMember[];
   defaults: UtilityDefaults;
 }) {
   const [state, formAction] = useActionState(
-    updateUtilityType.bind(null, groupId, utilityTypeId),
+    updateUtilityBill.bind(null, groupId, utilityTypeId, month),
     emptyFormState,
   );
   // "Saved ✓" until the leader edits the row again; a new submit result
@@ -199,6 +214,12 @@ export function UtilityTypeEditor({
     <div className="flex flex-col gap-3">
       <form action={formAction} onChange={() => setDirty(true)}>
         <NonFieldErrors state={state} />
+        {defaults.prefilledFrom && !state.success ? (
+          <p className="alert alert-warning alert-soft mb-3 py-2 text-[0.8rem]">
+            Not set for this month yet — prefilled from {defaults.prefilledFrom}. Save to confirm
+            or change the amount.
+          </p>
+        ) : null}
         <UtilityFields
           idPrefix={`id_utility_${utilityTypeId}`}
           members={members}
@@ -207,7 +228,7 @@ export function UtilityTypeEditor({
         />
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <SubmitButton className="btn btn-secondary btn-sm" pendingLabel="Saving…">
-            {saved ? "Saved ✓" : "Save changes"}
+            {saved ? "Saved ✓" : defaults.prefilledFrom ? "Save for this month" : "Save changes"}
           </SubmitButton>
         </div>
       </form>
@@ -228,6 +249,27 @@ export function UtilityTypeEditor({
         </button>
       </ConfirmForm>
     </div>
+  );
+}
+
+/** Leader only: fill every unset bill this month from its latest earlier month. */
+export function CopyFromPreviousMonthButton({
+  groupId,
+  month,
+  unsetCount,
+}: {
+  groupId: number;
+  month: YearMonth;
+  unsetCount: number;
+}) {
+  return (
+    <form action={copyBillsFromPreviousMonth.bind(null, groupId)}>
+      <input type="hidden" name="year" value={month.year} />
+      <input type="hidden" name="month" value={month.month} />
+      <SubmitButton className="btn btn-warning btn-sm" pendingLabel="Copying…">
+        Copy last month&apos;s amounts ({unsetCount} unset)
+      </SubmitButton>
+    </form>
   );
 }
 

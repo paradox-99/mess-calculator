@@ -146,15 +146,19 @@ data corruption, not a crash.
   sitting absent clears that meal on every member's entry for the date (audited
   under the marker) and `recordDailyEntry()` rejects logging it afterwards.
   Unmarking restores nothing.
-- **Utilities** (`UtilityType` + `UtilityAmount` + `UtilityPayment`): the
-  leader defines the group's utility types; removal deactivates. A type is
-  either `sameForAll` (one `amount` for everyone, covering members who join
-  later) or per member (`UtilityAmount` rows; a member with no row shows
-  "Not set"). `amountFor()` in `lib/utility-service.ts` resolves which.
-  Payments are per month cycle — members tick their own, the leader can tick
-  anyone's (same rule as `canEditEntry`). The dashboard's Utilities column is
-  green only when every active type is paid for that month. Not blocked by a
-  closed month, since bills are often paid late.
+- **Utilities** (`UtilityType` + `UtilityBill` + `UtilityBillShare` +
+  `UtilityPayment`): the leader defines the group's utility *types* (name
+  only; removal deactivates). **Amounts are per month** — gas and electricity
+  change — in a `UtilityBill` per type × month cycle, either `sameForAll`
+  (one `amount`, covers members who join later) or per member
+  (`UtilityBillShare` rows). No bill for a month = "not set"; the leader's
+  editor prefills from the latest earlier month and `copyBillsFromPreviousMonth`
+  fills all unset ones at once. `amountFor()` in `lib/utility-service.ts`
+  resolves a member's figure. Payments are per month cycle — members tick
+  their own, the leader can tick anyone's (same rule as `canEditEntry`). The
+  dashboard's Utilities column is green only when every active type is paid
+  for that month. Not blocked by a closed month, since bills are often paid
+  late.
 
 ## Not built yet
 

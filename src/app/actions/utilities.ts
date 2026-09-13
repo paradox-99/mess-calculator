@@ -4,12 +4,14 @@ import { Prisma } from "@/generated/prisma/client";
 import { forbidden, notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
+import type { YearMonth } from "@/lib/date";
 import { requireMemberGroup } from "@/lib/guards";
 import { getOrCreateMonthCycle } from "@/lib/mess-service";
 import { canEditEntry, isLeader } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { text, type FormState } from "@/lib/form";
+import { latestEarlierBill } from "@/lib/utility-service";
 import { fieldErrors, utilityAmountSchema, utilityTypeSchema } from "@/lib/validation";
 
 function revalidateGroup(groupId: number) {
@@ -17,11 +19,18 @@ function revalidateGroup(groupId: number) {
   revalidatePath(`/mess/${groupId}/dashboard`);
 }
 
+async function requireLeader(groupId: number) {
+  const actor = await requireUser();
+  await requireMemberGroup(actor.id, groupId);
+  if (!(await isLeader(actor.id, groupId))) forbidden();
+  return actor;
+}
+
 type ParsedUtility = {
   name: string;
   sameForAll: boolean;
   amount: Prisma.Decimal | null;
-  memberAmounts: { userId: number; amount: Prisma.Decimal }[];
+  shares: { userId: number; amount: Prisma.Decimal }[];
 };
 
 /**
@@ -50,12 +59,12 @@ async function parseUtilityForm(
   const parsed = utilityTypeSchema.safeParse(values);
   const errors = parsed.success ? {} : fieldErrors(parsed.error);
 
-  const memberAmounts: ParsedUtility["memberAmounts"] = [];
+  const shares: ParsedUtility["shares"] = [];
   if (values.split === "individual") {
     for (const { userId } of members) {
       const result = utilityAmountSchema.safeParse(values[`amount_${userId}`]);
       if (result.success) {
-        memberAmounts.push({ userId, amount: new Prisma.Decimal(result.data) });
+        shares.push({ userId, amount: new Prisma.Decimal(result.data) });
       } else {
         errors[`amount_${userId}`] = [result.error.issues[0]?.message ?? "Enter a valid amount."];
       }
@@ -73,7 +82,7 @@ async function parseUtilityForm(
       name: parsed.data.name,
       sameForAll,
       amount: sameForAll ? new Prisma.Decimal(parsed.data.amount) : null,
-      memberAmounts: sameForAll ? [] : memberAmounts,
+      shares: sameForAll ? [] : shares,
     },
   };
 }
@@ -92,48 +101,71 @@ async function hasDuplicateName(groupId: number, name: string, exceptId?: number
 
 const DUPLICATE_NAME = "This group already has a utility with that name.";
 
-/** Leader only: define a new utility for the group. */
+/** Replaces a month's bill for a type wholesale — shares included. */
+async function writeBill(
+  tx: Prisma.TransactionClient,
+  utilityTypeId: number,
+  monthCycleId: number,
+  { sameForAll, amount, shares }: Omit<ParsedUtility, "name">,
+) {
+  const existing = await tx.utilityBill.findUnique({
+    where: { utilityTypeId_monthCycleId: { utilityTypeId, monthCycleId } },
+  });
+  if (existing) {
+    await tx.utilityBillShare.deleteMany({ where: { utilityBillId: existing.id } });
+  }
+  await tx.utilityBill.upsert({
+    where: { utilityTypeId_monthCycleId: { utilityTypeId, monthCycleId } },
+    create: {
+      utilityTypeId,
+      monthCycleId,
+      sameForAll,
+      amount,
+      shares: { createMany: { data: shares } },
+    },
+    update: { sameForAll, amount, shares: { createMany: { data: shares } } },
+  });
+}
+
+/** Leader only: define a new utility and set what it costs this month. */
 export async function createUtilityType(
   groupId: number,
+  month: YearMonth,
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  const actor = await requireUser();
-  await requireMemberGroup(actor.id, groupId);
-  if (!(await isLeader(actor.id, groupId))) forbidden();
+  await requireLeader(groupId);
 
   const parsed = await parseUtilityForm(groupId, formData);
   if (!parsed.ok) return parsed.state;
-  const { name, sameForAll, amount, memberAmounts } = parsed.data;
+  const { name, ...bill } = parsed.data;
 
   if (await hasDuplicateName(groupId, name)) {
     return { errors: { name: [DUPLICATE_NAME] }, values: { name } };
   }
 
-  await prisma.utilityType.create({
-    data: {
-      groupId,
-      name,
-      sameForAll,
-      amount,
-      memberAmounts: { createMany: { data: memberAmounts } },
-    },
+  const monthCycle = await getOrCreateMonthCycle(groupId, month);
+  await prisma.$transaction(async (tx) => {
+    const type = await tx.utilityType.create({ data: { groupId, name } });
+    await writeBill(tx, type.id, monthCycle.id, bill);
   });
 
   revalidateGroup(groupId);
   return { success: true };
 }
 
-/** Leader only: rename a utility, change how it's split, or re-price it. */
-export async function updateUtilityType(
+/**
+ * Leader only: rename a utility (applies to every month) and set or change
+ * what it costs in the given month (applies to that month only).
+ */
+export async function updateUtilityBill(
   groupId: number,
   utilityTypeId: number,
+  month: YearMonth,
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  const actor = await requireUser();
-  await requireMemberGroup(actor.id, groupId);
-  if (!(await isLeader(actor.id, groupId))) forbidden();
+  await requireLeader(groupId);
 
   const type = await prisma.utilityType.findFirst({
     where: { id: utilityTypeId, groupId, isActive: true },
@@ -142,39 +174,66 @@ export async function updateUtilityType(
 
   const parsed = await parseUtilityForm(groupId, formData);
   if (!parsed.ok) return parsed.state;
-  const { name, sameForAll, amount, memberAmounts } = parsed.data;
+  const { name, ...bill } = parsed.data;
 
   if (await hasDuplicateName(groupId, name, type.id)) {
     return { errors: { name: [DUPLICATE_NAME] }, values: { name } };
   }
 
-  // Per-member rows are replaced wholesale: switching to "same for everyone"
-  // drops them, switching back starts from what the form just sent.
-  await prisma.$transaction([
-    prisma.utilityAmount.deleteMany({ where: { utilityTypeId: type.id } }),
-    prisma.utilityType.update({
-      where: { id: type.id },
-      data: {
-        name,
-        sameForAll,
-        amount,
-        memberAmounts: { createMany: { data: memberAmounts } },
-      },
-    }),
-  ]);
+  const monthCycle = await getOrCreateMonthCycle(groupId, month);
+  await prisma.$transaction(async (tx) => {
+    await tx.utilityType.update({ where: { id: type.id }, data: { name } });
+    await writeBill(tx, type.id, monthCycle.id, bill);
+  });
 
   revalidateGroup(groupId);
   return { success: true };
 }
 
 /**
+ * Leader only: for every utility with no bill set this month, copy its most
+ * recent earlier bill. Utilities that already have a bill are left alone, so
+ * this is safe to press after hand-entering the ones that changed.
+ */
+export async function copyBillsFromPreviousMonth(groupId: number, formData: FormData) {
+  await requireLeader(groupId);
+
+  const year = Number(formData.get("year"));
+  const month = Number(formData.get("month"));
+  if (!Number.isInteger(year) || !Number.isInteger(month)) notFound();
+
+  const monthCycle = await getOrCreateMonthCycle(groupId, { year, month });
+  const types = await prisma.utilityType.findMany({
+    where: { groupId, isActive: true, bills: { none: { monthCycleId: monthCycle.id } } },
+  });
+
+  for (const type of types) {
+    const earlier = await latestEarlierBill(type.id, { year, month });
+    if (!earlier) continue;
+    await prisma.utilityBill.create({
+      data: {
+        utilityTypeId: type.id,
+        monthCycleId: monthCycle.id,
+        sameForAll: earlier.bill.sameForAll,
+        amount: earlier.bill.amount,
+        shares: {
+          createMany: {
+            data: earlier.bill.shares.map(({ userId, amount }) => ({ userId, amount })),
+          },
+        },
+      },
+    });
+  }
+
+  revalidateGroup(groupId);
+}
+
+/**
  * Leader only. Deactivates rather than deletes so earlier months keep their
- * payment history; the utility just stops appearing from now on.
+ * bills and payment history; the utility just stops appearing from now on.
  */
 export async function removeUtilityType(groupId: number, utilityTypeId: number) {
-  const actor = await requireUser();
-  await requireMemberGroup(actor.id, groupId);
-  if (!(await isLeader(actor.id, groupId))) forbidden();
+  await requireLeader(groupId);
 
   const type = await prisma.utilityType.findFirst({
     where: { id: utilityTypeId, groupId, isActive: true },

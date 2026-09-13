@@ -2,7 +2,13 @@ import Link from "next/link";
 import type { Prisma } from "@/generated/prisma/client";
 import type { Metadata } from "next";
 
-import { AddUtilityForm, PaidToggle, UtilityTypeEditor } from "./utility-forms";
+import {
+  AddUtilityForm,
+  CopyFromPreviousMonthButton,
+  PaidToggle,
+  UtilityTypeEditor,
+  type UtilityDefaults,
+} from "./utility-forms";
 import { MonthSelect } from "@/components/month-select";
 import { monthFromParams } from "@/lib/date";
 import { money, pluralize } from "@/lib/format";
@@ -13,10 +19,12 @@ import { isLeader } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import {
-  activeUtilityTypes,
   amountFor,
+  latestEarlierBill,
+  monthlyUtilities,
   paidUtilityKeys,
-  type UtilityTypeWithAmounts,
+  type MonthlyUtility,
+  type UtilityBillWithShares,
 } from "@/lib/utility-service";
 
 type PageProps = {
@@ -48,22 +56,42 @@ export default async function UtilitiesPage({ params, searchParams }: PageProps)
   const monthCycle = await getOrCreateMonthCycle(group.id, selected);
   const viewerIsLeader = await isLeader(user.id, group.id);
 
-  const [memberships, types, paid, { options, selectedValue, label }] = await Promise.all([
+  const [memberships, utilities, paid, { options, selectedValue, label }] = await Promise.all([
     prisma.groupMembership.findMany({
       where: { groupId: group.id, isActive: true },
       include: { user: { select: { id: true, username: true } } },
       orderBy: { user: { username: "asc" } },
     }),
-    activeUtilityTypes(group.id),
+    monthlyUtilities(group.id, monthCycle.id),
     paidUtilityKeys(monthCycle.id),
     monthOptions(group.id, selected),
   ]);
   const members = memberships.map((membership) => membership.user);
+  const types = utilities.map(({ type }) => type);
 
   const rows = members.map((member) => {
     const paidCount = types.filter((type) => paid.has(`${type.id}:${member.id}`)).length;
     return { member, paidCount, allPaid: types.length > 0 && paidCount === types.length };
   });
+
+  // For the leader: utilities with no bill this month get their editor
+  // prefilled from the latest earlier month, and a one-click copy for all.
+  const unset = utilities.filter(({ bill }) => bill === null);
+  const editors = viewerIsLeader
+    ? await Promise.all(
+        utilities.map(async ({ type, bill }) => {
+          if (bill) return { type, defaults: editorDefaults(type.name, bill) };
+          const earlier = await latestEarlierBill(type.id, selected);
+          return {
+            type,
+            defaults: earlier
+              ? { ...editorDefaults(type.name, earlier.bill), prefilledFrom: earlier.monthLabel }
+              : editorDefaults(type.name, null),
+          };
+        }),
+      )
+    : [];
+  const canCopyForward = unset.length > 0 && editors.some((e) => e.defaults.prefilledFrom);
 
   return (
     <section className="mx-auto my-11 max-w-[1080px] max-[680px]:my-6">
@@ -106,14 +134,14 @@ export default async function UtilitiesPage({ params, searchParams }: PageProps)
                   <th className="border-b border-line bg-brand-wash px-5 py-3.5 text-left text-[0.78rem] font-semibold uppercase tracking-[0.04em] text-muted">
                     Member
                   </th>
-                  {types.map((type) => (
+                  {utilities.map(({ type, bill }) => (
                     <th
                       key={type.id}
                       className="border-b border-line bg-brand-wash px-3 py-3.5 text-center text-[0.78rem] font-semibold uppercase tracking-[0.04em] text-muted"
                     >
                       <span className="block">{type.name}</span>
                       <span className="block text-[0.7rem] font-normal normal-case tracking-normal">
-                        {type.sameForAll ? `${formatAmount(type.amount)} each` : "per member"}
+                        {billSummary(bill)}
                       </span>
                     </th>
                   ))}
@@ -133,7 +161,7 @@ export default async function UtilitiesPage({ params, searchParams }: PageProps)
                           <span className="ml-1.5 text-[0.75rem] font-normal text-muted">(you)</span>
                         ) : null}
                       </td>
-                      {types.map((type) => (
+                      {utilities.map(({ type, bill }) => (
                         <td
                           key={type.id}
                           className="border-b border-line px-3 py-3.5 text-center align-middle"
@@ -150,7 +178,7 @@ export default async function UtilitiesPage({ params, searchParams }: PageProps)
                               label={`${member.username} paid ${type.name}`}
                             />
                             <span className="text-[0.75rem] text-muted">
-                              {formatAmount(amountFor(type, member.id))}
+                              {formatAmount(amountFor(bill, member.id))}
                             </span>
                           </div>
                         </td>
@@ -179,36 +207,54 @@ export default async function UtilitiesPage({ params, searchParams }: PageProps)
 
       <section className="panel">
         <div className="flex items-center justify-between border-b border-line px-5 py-[1.1rem] max-[680px]:p-4">
-          <h2 className="m-0 text-[1.1rem] text-brand">Utility types</h2>
+          <h2 className="m-0 text-[1.1rem] text-brand">Utilities for {label}</h2>
           <span className="badge badge-ghost badge-sm">
             {types.length} utilit{types.length === 1 ? "y" : "ies"}
           </span>
         </div>
 
+        {viewerIsLeader && canCopyForward ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-sand bg-parchment px-5 py-3 text-[0.85rem] text-gold-ink max-[680px]:px-4">
+            <span>
+              {unset.length} utilit{unset.length === 1 ? "y has" : "ies have"} no amount set for{" "}
+              {label} yet. Bills change month to month, so each one needs confirming.
+            </span>
+            <CopyFromPreviousMonthButton
+              groupId={group.id}
+              month={selected}
+              unsetCount={unset.length}
+            />
+          </div>
+        ) : null}
+
         {types.length > 0 ? (
           <ul className="m-0 list-none divide-y divide-line p-0">
-            {types.map((type) => (
-              <li key={type.id} className="px-5 py-4 max-[680px]:px-4">
-                {viewerIsLeader ? (
-                  <UtilityTypeEditor
-                    groupId={group.id}
-                    utilityTypeId={type.id}
-                    members={members}
-                    defaults={editorDefaults(type)}
-                  />
-                ) : (
-                  <div className="flex items-center justify-between gap-4">
+            {viewerIsLeader
+              ? editors.map(({ type, defaults }) => (
+                  <li key={type.id} className="px-5 py-4 max-[680px]:px-4">
+                    <UtilityTypeEditor
+                      groupId={group.id}
+                      utilityTypeId={type.id}
+                      month={selected}
+                      members={members}
+                      defaults={defaults}
+                    />
+                  </li>
+                ))
+              : utilities.map(({ type, bill }) => (
+                  <li
+                    key={type.id}
+                    className="flex items-center justify-between gap-4 px-5 py-4 max-[680px]:px-4"
+                  >
                     <span className="font-bold">{type.name}</span>
                     <span className="text-muted">
-                      {formatAmount(amountFor(type, user.id))}{" "}
+                      {formatAmount(amountFor(bill, user.id))}{" "}
                       <span className="text-[0.8rem]">
-                        {type.sameForAll ? "each" : "your share"}
+                        {bill ? (bill.sameForAll ? "each" : "your share") : "this month"}
                       </span>
                     </span>
-                  </div>
-                )}
-              </li>
-            ))}
+                  </li>
+                ))}
           </ul>
         ) : (
           <div className="px-5 py-8 text-center text-muted">
@@ -220,7 +266,7 @@ export default async function UtilitiesPage({ params, searchParams }: PageProps)
 
         {viewerIsLeader ? (
           <div className="border-t border-line bg-brand-panel px-5 py-4 max-[680px]:px-4">
-            <AddUtilityForm groupId={group.id} members={members} />
+            <AddUtilityForm groupId={group.id} month={selected} members={members} />
           </div>
         ) : null}
       </section>
@@ -228,7 +274,7 @@ export default async function UtilitiesPage({ params, searchParams }: PageProps)
       <p className="mt-3 text-[0.85rem] text-muted">
         {viewerIsLeader
           ? "You can tick payments for anyone. Members can only tick their own."
-          : "Tick a utility once you've paid it. Only the leader can change the utility types."}
+          : "Tick a utility once you've paid it. Only the leader can change the utilities and their amounts, which are set month by month."}
       </p>
 
       <Link
@@ -246,14 +292,19 @@ function formatAmount(amount: Prisma.Decimal | null): string {
   return amount ? money(amount) : "Not set";
 }
 
+/** Column subtitle: "350.00 each", "per member", or "not set". */
+function billSummary(bill: MonthlyUtility["bill"]): string {
+  if (!bill) return "not set";
+  return bill.sameForAll ? `${formatAmount(bill.amount)} each` : "per member";
+}
+
 /** Decimals → strings so the editor (a Client Component) can take them as props. */
-function editorDefaults(type: UtilityTypeWithAmounts) {
+function editorDefaults(name: string, bill: UtilityBillWithShares | null): UtilityDefaults {
+  if (!bill) return { name, split: "same", amount: "", amounts: {} };
   return {
-    name: type.name,
-    split: type.sameForAll ? ("same" as const) : ("individual" as const),
-    amount: type.amount?.toString() ?? "",
-    amounts: Object.fromEntries(
-      type.memberAmounts.map((row) => [row.userId, row.amount.toString()]),
-    ),
+    name,
+    split: bill.sameForAll ? "same" : "individual",
+    amount: bill.amount?.toString() ?? "",
+    amounts: Object.fromEntries(bill.shares.map((row) => [row.userId, row.amount.toString()])),
   };
 }

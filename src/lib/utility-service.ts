@@ -1,33 +1,76 @@
 import "server-only";
 
-import { Prisma } from "@/generated/prisma/client";
+import { Prisma, type MonthCycle, type UtilityType } from "@/generated/prisma/client";
 
+import { monthLabel, type YearMonth } from "@/lib/date";
 import { prisma } from "@/lib/prisma";
 
-export type UtilityTypeWithAmounts = Prisma.UtilityTypeGetPayload<{
-  include: { memberAmounts: true };
-}>;
+export type UtilityBillWithShares = Prisma.UtilityBillGetPayload<{ include: { shares: true } }>;
+
+/** A utility together with what it costs in one month (null = not set yet). */
+export type MonthlyUtility = { type: UtilityType; bill: UtilityBillWithShares | null };
 
 /** The group's current utilities, in the order the leader added them. */
-export async function activeUtilityTypes(groupId: number): Promise<UtilityTypeWithAmounts[]> {
+export async function activeUtilityTypes(groupId: number): Promise<UtilityType[]> {
   return prisma.utilityType.findMany({
     where: { groupId, isActive: true },
-    include: { memberAmounts: true },
     orderBy: { id: "asc" },
   });
 }
 
+/** Every active utility paired with its bill for this month, if one is set. */
+export async function monthlyUtilities(
+  groupId: number,
+  monthCycleId: number,
+): Promise<MonthlyUtility[]> {
+  const [types, bills] = await Promise.all([
+    activeUtilityTypes(groupId),
+    prisma.utilityBill.findMany({ where: { monthCycleId }, include: { shares: true } }),
+  ]);
+  const byType = new Map(bills.map((bill) => [bill.utilityTypeId, bill]));
+  return types.map((type) => ({ type, bill: byType.get(type.id) ?? null }));
+}
+
 /**
- * What one member owes for a utility: the shared figure when it's split
- * evenly, else their own row. Null when the leader hasn't set a figure for
- * them yet (a member who joined after an individually-priced bill was made).
+ * What one member owes for a bill: the shared figure when it's split
+ * evenly, else their own share. Null when there's no bill this month or the
+ * leader hasn't set a figure for them (a member who joined after an
+ * individually-priced bill was made).
  */
 export function amountFor(
-  type: UtilityTypeWithAmounts,
+  bill: UtilityBillWithShares | null,
   userId: number,
 ): Prisma.Decimal | null {
-  if (type.sameForAll) return type.amount;
-  return type.memberAmounts.find((row) => row.userId === userId)?.amount ?? null;
+  if (!bill) return null;
+  if (bill.sameForAll) return bill.amount;
+  return bill.shares.find((row) => row.userId === userId)?.amount ?? null;
+}
+
+/**
+ * The most recent bill for a utility from any month before `before`, with the
+ * month it came from — what the editor prefills with, since rent rarely
+ * changes even though gas does.
+ */
+export async function latestEarlierBill(
+  utilityTypeId: number,
+  before: YearMonth,
+): Promise<{ bill: UtilityBillWithShares; monthLabel: string } | null> {
+  const bill = await prisma.utilityBill.findFirst({
+    where: {
+      utilityTypeId,
+      monthCycle: {
+        OR: [
+          { year: { lt: before.year } },
+          { year: before.year, month: { lt: before.month } },
+        ],
+      },
+    },
+    include: { shares: true, monthCycle: { select: { year: true, month: true } } },
+    orderBy: [{ monthCycle: { year: "desc" } }, { monthCycle: { month: "desc" } }],
+  });
+  if (!bill) return null;
+  const { monthCycle, ...rest } = bill;
+  return { bill: rest, monthLabel: monthLabel(monthCycle) };
 }
 
 /**
@@ -57,19 +100,19 @@ export type MemberDues = {
  */
 export async function unpaidUtilityDues(
   groupId: number,
-  monthCycleId: number,
+  monthCycle: MonthCycle,
   members: { id: number; username: string }[],
 ): Promise<MemberDues[]> {
-  const [types, paid] = await Promise.all([
-    activeUtilityTypes(groupId),
-    paidUtilityKeys(monthCycleId),
+  const [utilities, paid] = await Promise.all([
+    monthlyUtilities(groupId, monthCycle.id),
+    paidUtilityKeys(monthCycle.id),
   ]);
 
   const dues: MemberDues[] = [];
   for (const user of members) {
-    const unpaid = types
-      .filter((type) => !paid.has(`${type.id}:${user.id}`))
-      .map((type) => ({ name: type.name, amount: amountFor(type, user.id) }));
+    const unpaid = utilities
+      .filter(({ type }) => !paid.has(`${type.id}:${user.id}`))
+      .map(({ type, bill }) => ({ name: type.name, amount: amountFor(bill, user.id) }));
     if (unpaid.length === 0) continue;
     const total = unpaid.reduce(
       (sum, bill) => (bill.amount ? sum.plus(bill.amount) : sum),

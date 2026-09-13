@@ -38,7 +38,7 @@ model User {
   targetLogs      ActivityLog[]       @relation("LogTarget")
   maidAbsences    MaidAbsence[]       @relation("MaidAbsenceMarkedBy")
   utilityPayments UtilityPayment[]
-  utilityAmounts  UtilityAmount[]
+  utilityShares   UtilityBillShare[]
 }
 
 model Group {
@@ -98,44 +98,60 @@ model MonthCycle {
   enrollments     MonthlyEnrollment[]
   maidAbsences    MaidAbsence[]
   utilityPayments UtilityPayment[]
+  utilityBills    UtilityBill[]
 
   @@unique([groupId, year, month])
 }
 
-/// A recurring bill the group shares (gas, wifi, electricity…). Each group
-/// defines its own; only the leader creates or changes them. Removing one
-/// deactivates it so past months' payments still line up.
+/// A kind of bill the group shares (rent, gas, wifi…). Each group defines
+/// its own; only the leader creates or changes them. Removing one deactivates
+/// it so past months' bills and payments still line up. The amount is NOT
+/// here — gas and electricity change every month, so it lives in UtilityBill.
 model UtilityType {
-  id         Int      @id @default(autoincrement())
-  groupId    Int
-  name       String
-  // Bills like wifi split evenly; bills like rent differ per room. When
-  // sameForAll is set, `amount` applies to every member (including anyone
-  // who joins later); otherwise each member's figure lives in UtilityAmount
-  // and `amount` is unused.
-  sameForAll Boolean  @default(true)
-  amount     Decimal? @db.Decimal(8, 2)
-  isActive   Boolean  @default(true)
-  createdAt  DateTime @default(now())
+  id        Int      @id @default(autoincrement())
+  groupId   Int
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
 
-  group         Group            @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  memberAmounts UtilityAmount[]
-  payments      UtilityPayment[]
+  group    Group            @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  bills    UtilityBill[]
+  payments UtilityPayment[]
 
   @@index([groupId, isActive])
 }
 
-/// One member's share of a utility that isn't split evenly. Leader-set.
-model UtilityAmount {
-  id            Int     @id @default(autoincrement())
+/// What a utility costs in one month. Bills like wifi split evenly; bills
+/// like rent differ per room. When sameForAll is set, `amount` applies to
+/// every member (including anyone who joins later); otherwise each member's
+/// figure lives in UtilityBillShare and `amount` is unused. A month with no
+/// row for a type is "not set yet".
+model UtilityBill {
+  id            Int      @id @default(autoincrement())
   utilityTypeId Int
+  monthCycleId  Int
+  sameForAll    Boolean  @default(true)
+  amount        Decimal? @db.Decimal(8, 2)
+  updatedAt     DateTime @updatedAt
+
+  utilityType UtilityType        @relation(fields: [utilityTypeId], references: [id], onDelete: Cascade)
+  monthCycle  MonthCycle         @relation(fields: [monthCycleId], references: [id], onDelete: Cascade)
+  shares      UtilityBillShare[]
+
+  @@unique([utilityTypeId, monthCycleId])
+}
+
+/// One member's share of a month's bill that isn't split evenly. Leader-set.
+model UtilityBillShare {
+  id            Int     @id @default(autoincrement())
+  utilityBillId Int
   userId        Int
   amount        Decimal @db.Decimal(8, 2)
 
-  utilityType UtilityType @relation(fields: [utilityTypeId], references: [id], onDelete: Cascade)
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bill UtilityBill @relation(fields: [utilityBillId], references: [id], onDelete: Cascade)
+  user User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([utilityTypeId, userId])
+  @@unique([utilityBillId, userId])
 }
 
 /// One member having paid one utility for one month. Existence is the flag —
