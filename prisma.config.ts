@@ -23,6 +23,10 @@ export default defineConfig({
     // which throws when the variable is missing. `prisma generate` doesn't need
     // a database, and it runs on `npm install` — before anyone has copied
     // .env.example. The migrate commands still fail loudly if it's unset.
-    url: process.env.DATABASE_URL,
+    //
+    // DIRECT_URL takes precedence when set: migrations hang through a
+    // transaction-mode pooler (Supabase's port 6543), so the CLI needs a
+    // session-mode / direct connection even though the app runs on the pooler.
+    url: process.env.DIRECT_URL || process.env.DATABASE_URL,
   },
 });
