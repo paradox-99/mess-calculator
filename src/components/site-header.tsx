@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { logout } from "@/app/actions/auth";
+import { LogoMark } from "@/components/logo-mark";
 import { currentUser } from "@/lib/session";
 
 export async function SiteHeader() {
@@ -12,16 +13,11 @@ export async function SiteHeader() {
         <Link
           href="/"
           aria-label="Mess Calculator home"
-          className="inline-flex items-center gap-2.5 text-navy no-underline max-[680px]:gap-2"
+          className="group inline-flex items-center gap-2.5 text-navy no-underline max-[680px]:gap-2"
         >
-          <span
-            aria-hidden="true"
-            className="grid h-[2.35rem] w-[2.35rem] place-items-center rounded-[8px_8px_11px_11px] bg-brand text-[0.78rem] font-black tracking-[-0.08em] text-gold shadow-[inset_0_-5px_0_#e76f51]"
-          >
-            MC
-          </span>
-          <span className="font-serif text-[1.15rem] font-bold max-[680px]:text-base max-[680px]:leading-tight">
-            Mess Calculator
+          <LogoMark className="h-[2.35rem] w-[2.35rem] shrink-0 drop-shadow-[0_2px_6px_rgba(15,76,92,0.3)] transition-transform duration-200 group-hover:-rotate-3 group-hover:scale-105" />
+          <span className="font-serif text-[1.15rem] font-bold leading-none tracking-[-0.01em] max-[680px]:text-base">
+            Mess <span className="text-brand">Calculator</span>
           </span>
         </Link>
       </div>
