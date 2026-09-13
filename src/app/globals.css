@@ -113,6 +113,12 @@
 }
 
 @layer base {
+  /* daisyUI paints <html> with --root-bg (base-100, white); on short pages
+     that shows below the body, so point the root at the canvas color too. */
+  html {
+    --root-bg: var(--color-canvas);
+  }
+
   body {
     background: var(--color-canvas);
     color: var(--color-ink);
